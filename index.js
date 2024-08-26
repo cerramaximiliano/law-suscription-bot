@@ -2,7 +2,7 @@ const express = require("express");
 const path = require("path");
 const mongoose = require("mongoose");
 const { botToken, port, mongoUri } = require("./config/env");
-const bot = require("./src/bot"); // Importar la lógica del bot
+//const bot = require("./src/bot"); // Importar la lógica del bot
 const subscriptionRoutes = require("./src/routes/subscription"); // Importar las rutas de suscripción
 const successRoutes = require("./src/routes/success"); // Importar la ruta de éxito
 const webhookRoutes = require("./src/routes/webhook");
@@ -36,7 +36,7 @@ mongoose
   });
 
 // Iniciar el bot de Telegram
-bot.launch();
+//bot.launch();
 
 // Rutas para suscripción y éxito
 app.use("/suscripcion", subscriptionRoutes);

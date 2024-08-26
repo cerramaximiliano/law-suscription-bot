@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Info Law - Grupo Legal de Telegram</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+      integrity="sha384-dyB4rTEw3Lp7XYzPQ0sG6ncoRlUz7o2D2J6M8jYk9F6iC6S4ZR4fdpI5c8dyZT1x"
+      crossorigin="anonymous"
+    />
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/img/apple-touch-icon.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/img/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/img/favicon-16x16.png"
+    />
+
+    <style>
+      body {
+        font-family: "Montserrat", sans-serif;
+        background-color: #f4f7f6;
+        color: #333;
+      }
+
+      h2,
+      h3 {
+        margin-bottom: 30px; /* Aumenta el espacio debajo de los títulos */
+      }
+
+      .header {
+        text-align: center;
+        padding: 50px 0;
+        background-color: #0f1926;
+        color: #fff;
+        min-height: 100vh; /* Ocupa el 100% de la altura de la pantalla */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding-left: 10%;
+        padding-right: 10%;
+      }
+
+      .header h1 {
+        margin-top: 20px;
+        font-weight: 700;
+        font-size: 2.5rem; /* Aumenta el tamaño del título */
+      }
+
+      .header p {
+        font-size: 1.4rem; /* Aumenta el tamaño del texto */
+        margin-bottom: 30px;
+        max-width: 800px; /* Limita la extensión del texto */
+        text-align: center;
+      }
+      .header img {
+        width: 150px;
+        max-width: 100%; /* Asegura que la imagen no se extienda más allá de su contenedor */
+        height: auto; /* Mantiene la proporción de la imagen */
+        border-radius: 50%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .carousel {
+        min-height: 100vh; /* Ocupa el 100% de la altura de la pantalla */
+        display: flex;
+        align-items: center;
+      }
+
+      .carousel img {
+        max-height: 400px; /* Aumenta la altura de las imágenes en el carrusel */
+        object-fit: cover;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .container.my-5 {
+        padding-top: 60px;
+        padding-bottom: 60px;
+      }
+
+      .container.my-5 .row .col-md-4 {
+        margin-bottom: 30px;
+      }
+
+      .blockquote {
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-left: 5px solid #0f1926;
+        min-height: 180px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .blockquote-footer {
+        margin-top: 10px;
+        font-size: 0.9rem;
+        color: #777;
+      }
+
+      .bot-section {
+        padding: 50px 0;
+        text-align: center;
+        background-color: #fff;
+      }
+      .bot-section img {
+        width: 120px;
+        margin-bottom: 20px;
+        border-radius: 50%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .contact-section {
+        padding: 50px 0;
+        background-color: #0f1926;
+        color: #fff;
+      }
+
+      .contact-section h2 {
+        margin-bottom: 40px;
+        font-weight: 700;
+      }
+
+      .contact-section .form-control {
+        border-radius: 0;
+      }
+
+      .contact-section form {
+        max-width: 500px; /* Reduce el ancho del formulario */
+        margin: 0 auto; /* Centra el formulario */
+      }
+
+      .btn-primary {
+        background-color: #28a745;
+        border-color: #28a745;
+      }
+
+      .btn-primary:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+      }
+
+      .btn-telegram {
+        background-color: #0088cc;
+        border-color: #0088cc;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+        padding: 12px 20px;
+        font-size: 1.2rem; /* Aumenta el tamaño del texto en el botón */
+        margin-bottom: 20px; /* Espacio adicional debajo del botón */
+      }
+
+      .btn-telegram i {
+        margin-left: 8px;
+      }
+
+      .btn-telegram:hover {
+        background-color: #0077aa;
+        border-color: #0077aa;
+        transform: scale(1.05);
+      }
+
+      .btn-telegram:active {
+        background-color: #006699;
+        border-color: #006699;
+        transform: scale(0.95);
+      }
+
+      .telegram-button {
+        z-index: 99;
+        position: fixed;
+        bottom: 120px;
+        right: 20px;
+        width: 43px;
+        height: 43px;
+        background-color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 24px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      .telegram-button:hover {
+        background-color: rgba(0, 136, 204, 0.5);
+      }
+
+      .telegram-button svg {
+        width: 30px;
+        height: 30px;
+        transition: transform 0.3s ease;
+      }
+
+      .telegram-button:hover svg {
+        transform: rotate(360deg);
+      }
+
+      .scroll-button {
+        margin-top: 20px;
+        padding: 10px 20px;
+        font-size: 1.1rem;
+        background-color: #ff5733;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+      }
+
+      .scroll-button:hover {
+        background-color: #e14a2a;
+        transform: scale(1.05);
+      }
+
+      @media (max-width: 768px) {
+        .header img {
+          width: 120px;
+        }
+        .header {
+          padding-left: 5%;
+          padding-right: 5%;
+        }
+        .carousel img {
+          max-height: 250px; /* Ajusta la altura para dispositivos móviles */
+        }
+        .bot-section img {
+          width: 100px;
+        }
+        .contact-section h2 {
+          font-size: 1.5rem;
+        }
+      }
+
+      .telegram-button.white-bg {
+        background-color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Encabezado -->
+    <div class="header">
+      <img src="/img/Perfil_Grupo.jpg" alt="Imagen del Grupo" />
+      <h1>Info Law</h1>
+      <p>
+        ¡Únete al grupo líder en información legal! Mantente siempre actualizado
+        con las normativas más recientes y aprovecha nuestros bots para
+        facilitar tu trabajo diario.
+      </p>
+      <a
+        href="https://t.me/lawinfochatbot"
+        class="btn btn-primary btn-telegram"
+      >
+        Únete al Grupo Ahora
+      </a>
+      <button class="scroll-button" onclick="scrollToSection('botSection')">
+        Conocer más
+      </button>
+    </div>
+
+    <!-- Carrusel de noticias -->
+    <div id="newsCarousel" class="carousel slide" data-ride="carousel">
+      <div class="carousel-inner">
+        <div class="carousel-item active">
+          <img
+            src="https://via.placeholder.com/800x300"
+            class="d-block w-100"
+            alt="Noticia 1"
+          />
+          <div class="carousel-caption d-none d-md-block">
+            <h5>Título de la Noticia 1</h5>
+            <p>Descripción breve de la noticia 1.</p>
+          </div>
+        </div>
+        <div class="carousel-item">
+          <img
+            src="https://via.placeholder.com/800x300"
+            class="d-block w-100"
+            alt="Noticia 2"
+          />
+          <div class="carousel-caption d-none d-md-block">
+            <h5>Título de la Noticia 2</h5>
+            <p>Descripción breve de la noticia 2.</p>
+          </div>
+        </div>
+        <!-- Agregar más noticias aquí -->
+      </div>
+      <a
+        class="carousel-control-prev"
+        href="#newsCarousel"
+        role="button"
+        data-slide="prev"
+      >
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="sr-only">Anterior</span>
+      </a>
+      <a
+        class="carousel-control-next"
+        href="#newsCarousel"
+        role="button"
+        data-slide="next"
+      >
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="sr-only">Siguiente</span>
+      </a>
+    </div>
+
+    <!-- Comentarios de usuarios -->
+    <div class="container my-5">
+      <h2 class="text-center">Comentarios de Usuarios</h2>
+      <div class="row">
+        <div class="col-md-4">
+          <blockquote class="blockquote">
+            <p class="mb-0">
+              "El mejor grupo para mantenerse actualizado con la normativa."
+            </p>
+            <footer class="blockquote-footer">Juan Bert</footer>
+          </blockquote>
+        </div>
+        <div class="col-md-4">
+          <blockquote class="blockquote">
+            <p class="mb-0">"Los bots hacen el trabajo mucho más fácil."</p>
+            <footer class="blockquote-footer">Afredo Visconte</footer>
+          </blockquote>
+        </div>
+        <div class="col-md-4">
+          <blockquote class="blockquote">
+            <p class="mb-0">"Recomendado para cualquier profesional legal."</p>
+            <footer class="blockquote-footer">Javier Fernández</footer>
+          </blockquote>
+        </div>
+        <!-- Agregar más comentarios aquí -->
+      </div>
+    </div>
+
+    <!-- Sección de Bots -->
+    <div id="botSection" class="bot-section">
+      <h2>Conoce a Nuestros Bots</h2>
+      <div class="row">
+        <div class="col-md-6">
+          <img src="/img/Perfil_bot_Law_Assistant.jpg" alt="Law Assistant" />
+          <h3>Law Assistant</h3>
+          <p>Gestiona expedientes, notificaciones y cálculos legales.</p>
+        </div>
+        <div class="col-md-6">
+          <img src="/img/Perfil_bot_Law_Bot.jpg" alt="Law Bot" />
+          <h3>Law Bot</h3>
+          <p>Envía notificaciones automáticas de información legal.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulario de Contacto -->
+    <div class="contact-section">
+      <div class="container">
+        <h2 class="text-center">Contáctanos</h2>
+        <form>
+          <div class="form-group">
+            <label for="name">Nombre</label>
+            <input type="text" class="form-control" id="name" required />
+          </div>
+          <div class="form-group">
+            <label for="email">Correo Electrónico</label>
+            <input type="email" class="form-control" id="email" required />
+          </div>
+          <div class="form-group">
+            <label for="message">Mensaje</label>
+            <textarea
+              class="form-control"
+              id="message"
+              rows="4"
+              required
+            ></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">
+            Enviar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <a
+      href="https://t.me/lawinfochatbot"
+      target="_blank"
+      class="telegram-button"
+    >
+      <svg viewbox="0 0 64 64">
+        <path
+          d="M56.4,8.2l-51.2,20c-1.7,0.6-1.6,3,0.1,3.5l9.7,2.9c2.1,0.6,3.8,2.2,4.4,4.3l3.8,12.1c0.5,1.6,2.5,2.1,3.7,0.9l5.2-5.3c0.9-0.9,2.2-1,3.2-0.3l11.5,8.4c1.6,1.2,3.9,0.3,4.3-1.7l8.7-41.8C60.4,9.1,58.4,7.4,56.4,8.2z M50,17.4L29.4,35.6c-1.1,1-1.9,2.4-2,3.9c-0.2,1.5-2.3,1.7-2.8,0.3l-0.9-3c-0.7-2.2,0.2-4.5,2.1-5.7l23.5-14.6C49.9,16.1,50.5,16.9,50,17.4z"
+        />
+      </svg>
+    </a>
+
+    <!-- Scripts de Bootstrap -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+      function scrollToSection(sectionId) {
+        document
+          .getElementById(sectionId)
+          .scrollIntoView({ behavior: "smooth" });
+      }
+    </script>
+  </body>
+</html>
