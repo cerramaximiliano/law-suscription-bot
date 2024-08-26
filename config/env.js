@@ -7,5 +7,7 @@ require('dotenv').config({
     stripeSecretKey: process.env.STRIPE_SECRET_KEY,
     port: process.env.PORT || 3000,
     mongoUri: process.env.MONGO_URI,
+
+    
   };
   
