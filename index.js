@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const mongoose = require("mongoose");
 const { botToken, port, mongoUri } = require("./config/env");
 const bot = require("./src/bot"); // Importar la lógica del bot
@@ -13,6 +14,13 @@ app.use("/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Servir archivos estáticos desde la carpeta 'public'
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Ruta para renderizar el archivo HTML de la landing page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Conectar a MongoDB
 mongoose
