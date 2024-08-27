@@ -30,11 +30,29 @@ exports.handleBotSubscription = async (ctx) => {
       // Enviar mensaje privado con el enlace de suscripción
       const sentMessage = await ctx.telegram.sendMessage(
         userId,
-        `Hola ${firstName}, para suscribirte, visita el siguiente enlace: ${subscriptionUrl}`
+        `Hola ${firstName}, para suscribirte, haz clic en el botón de abajo:`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "Suscribirme",
+                  url: subscriptionUrl, // El enlace de suscripción se pasa como URL en el botón
+                },
+              ],
+            ],
+          },
+        }
       );
+      // Enviar mensaje en el grupo informando al usuario que revise el mensaje privado
+      const groupMessage = await ctx.reply(
+        "Te he enviado un mensaje por privado. Por favor, revisa la conversación para poder continuar."
+      );
+
+      // Eliminar el mensaje en el grupo después de 10 segundos
       setTimeout(() => {
         ctx.telegram
-          .deleteMessage(chatId, sentMessage.message_id)
+          .deleteMessage(chatId, groupMessage.message_id)
           .catch(console.error);
       }, 10000);
     }
@@ -48,27 +66,61 @@ exports.handleBotSubscription = async (ctx) => {
 
 exports.handleBotAccess = async (ctx) => {
   const userId = ctx.from.id;
+  console.log(`User ID: ${userId}`); // Log para verificar el userId
 
   try {
     const subscription = await Subscription.findOne({ userId: userId });
+    console.log(`Subscription found: ${subscription}`); // Log para verificar la suscripción
 
     if (subscription && subscription.status === "active") {
-      await ctx.editMessageText("Selecciona una opción:", {
-        chat_id: ctx.chat.id,
-        message_id: ctx.update.callback_query.message.message_id,  // Usar el ID del mensaje
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Suscripción", callback_data: "subscription_info" }],
-            [{ text: "Servicios", callback_data: "tracking_options" }],
-          ],
-        },
-      });
+      console.log("Subscription is active");
+
+      if (ctx.update.callback_query && ctx.update.callback_query.message) {
+        console.log("Editing message to show options");
+        await ctx.editMessageText("Selecciona una opción:", {
+          chat_id: ctx.chat.id,
+          message_id: ctx.update.callback_query.message.message_id,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Suscripción", callback_data: "subscription_info" }],
+              [{ text: "Servicios", callback_data: "tracking_options" }],
+            ],
+          },
+        });
+      } else {
+        console.log("No callback_query or message found");
+        await ctx.reply("No se pudo actualizar el mensaje.");
+      }
     } else {
+      console.log("No active subscription found");
+
+      if (ctx.update.callback_query && ctx.update.callback_query.message) {
+        await ctx.editMessageText(
+          "No tienes una suscripción activa. Usa este enlace para suscribirte: [enlace de suscripción]",
+          {
+            chat_id: ctx.chat.id,
+            message_id: ctx.update.callback_query.message.message_id,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "Volver", callback_data: "back_to_main" }],
+              ],
+            },
+          }
+        );
+      } else {
+        console.log("No callback_query or message found");
+        await ctx.reply("No se pudo actualizar el mensaje.");
+      }
+    }
+  } catch (error) {
+    console.error("Error al verificar la suscripción:", error);
+
+    if (ctx.update.callback_query && ctx.update.callback_query.message) {
       await ctx.editMessageText(
-        "No tienes una suscripción activa. Usa este enlace para suscribirte: [enlace de suscripción]",
+        "Hubo un problema al verificar tu suscripción. Por favor, intenta nuevamente más tarde.",
         {
           chat_id: ctx.chat.id,
-          message_id: ctx.update.callback_query.message.message_id,  // Usar el ID del mensaje
+          message_id: ctx.update.callback_query.message.message_id,
           reply_markup: {
             inline_keyboard: [
               [{ text: "Volver", callback_data: "back_to_main" }],
@@ -76,24 +128,11 @@ exports.handleBotAccess = async (ctx) => {
           },
         }
       );
+    } else {
+      await ctx.reply("No se pudo actualizar el mensaje.");
     }
-  } catch (error) {
-    console.error("Error al verificar la suscripción:", error);
-    await ctx.editMessageText(
-      "Hubo un problema al verificar tu suscripción. Por favor, intenta nuevamente más tarde.",
-      {
-        chat_id: ctx.chat.id,
-        message_id: ctx.update.callback_query.message.message_id,  // Usar el ID del mensaje
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Volver", callback_data: "back_to_main" }],
-          ],
-        },
-      }
-    );
   }
 };
-
 
 
 exports.handleSubscriptionInfo = async (ctx) => {
@@ -105,12 +144,26 @@ exports.handleSubscriptionInfo = async (ctx) => {
     if (subscription) {
       // Editar el mensaje existente para mostrar la información de la suscripción
       await ctx.editMessageText(
-        `Datos de tu suscripción:\n\nEstado: ${subscription.status}\nFecha de suscripción: ${ moment(subscription.subscriptionDate).format("DD/MM/YYYY") }`,
+        `Datos de tu suscripción:\n\nEstado: ${
+          subscription.status
+        }\nFecha de suscripción: ${moment(subscription.subscriptionDate).format(
+          "DD/MM/YYYY"
+        )}`,
         {
           reply_markup: {
             inline_keyboard: [
-              [{ text: "Cancelar Suscripción", callback_data: "cancel_subscription" }],
-              [{ text: "Cambiar Método de Pago", callback_data: "change_payment_method" }],
+              [
+                {
+                  text: "Cancelar Suscripción",
+                  callback_data: "cancel_subscription",
+                },
+              ],
+              [
+                {
+                  text: "Cambiar Método de Pago",
+                  callback_data: "change_payment_method",
+                },
+              ],
               [{ text: "Volver", callback_data: "back_to_main" }],
             ],
           },
@@ -269,31 +322,35 @@ exports.handleCancelSubscription = async (ctx) => {
       subscription.status = "canceled";
       await subscription.save();
 
-      const sentMessage = await ctx.reply("Tu suscripción ha sido cancelada. Gracias por usar nuestros servicios.");    
-
+      const sentMessage = await ctx.reply(
+        "Tu suscripción ha sido cancelada. Gracias por usar nuestros servicios."
+      );
     } else {
       await ctx.reply("No tienes una suscripción activa para cancelar.");
     }
   } catch (error) {
     console.error("Error al cancelar la suscripción:", error);
-    await ctx.reply("Hubo un problema al cancelar tu suscripción. Por favor, inténtalo nuevamente más tarde.");
+    await ctx.reply(
+      "Hubo un problema al cancelar tu suscripción. Por favor, inténtalo nuevamente más tarde."
+    );
   }
 };
-
 
 exports.handleChangePaymentMethod = async (ctx) => {
   const userId = ctx.from.id;
 
   try {
     // Aquí puedes redirigir al usuario a una página para cambiar el método de pago o manejar el proceso de actualización directamente.
-    await ctx.reply("Por favor, sigue este enlace para cambiar tu método de pago: [Enlace a Stripe]");
+    await ctx.reply(
+      "Por favor, sigue este enlace para cambiar tu método de pago: [Enlace a Stripe]"
+    );
   } catch (error) {
     console.error("Error al cambiar el método de pago:", error);
-    await ctx.reply("Hubo un problema al cambiar tu método de pago. Por favor, inténtalo nuevamente más tarde.");
+    await ctx.reply(
+      "Hubo un problema al cambiar tu método de pago. Por favor, inténtalo nuevamente más tarde."
+    );
   }
 };
-
-
 
 // Funciones auxiliares (implementar estas funciones para obtener y manejar los datos)
 async function getTrackingCausas(userId) {
