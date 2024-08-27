@@ -53,7 +53,7 @@ exports.createSubscription = async (req, res) => {
     // Buscar o crear el cliente en Stripe utilizando el userId de Telegram
     const customer = await findOrCreateCustomerByTelegramId(userId, name);
 
-    // Crear la sesión de suscripción
+    // Crear la sesión de suscripción con un ciclo diario
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
@@ -61,12 +61,12 @@ exports.createSubscription = async (req, res) => {
           price_data: {
             currency: "usd",
             product_data: {
-              name: "Suscripción Pack Starter Info Law",
+              name: "Suscripción Pack Starter Info Law (1 Día)",
             },
             recurring: {
-              interval: "month", // O 'year' para anual
+              interval: "day", // Intervalo diario
             },
-            unit_amount: 599, // Precio en centavos
+            unit_amount: 100, // Precio en centavos (por ejemplo, $1.00 USD)
           },
           quantity: 1,
         },
@@ -85,29 +85,47 @@ exports.createSubscription = async (req, res) => {
 };
 
 
+
 exports.handleSuccess = async (req, res) => {
   const { session_id, userId, chatid } = req.query;
   console.log("handle success");
 
   try {
+    // Recuperar la sesión de Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id);
+    const stripeCustomerId = session.customer; // Obtener el stripeCustomerId de la sesión
 
-    // Aquí puedes guardar la suscripción en tu base de datos
+    // Buscar o crear la suscripción en tu base de datos
     let subscription = await Subscription.findOne({ userId: userId });
     if (!subscription) {
       subscription = new Subscription({
         userId: userId,
         chatId: chatid, // Guardamos el chatId que obtenemos de la consulta
+        stripeCustomerId: stripeCustomerId, // Guardar el stripeCustomerId en la base de datos
         subscriptionDate: new Date(),
         status: "active", // Se puede cambiar dependiendo de la lógica
       });
+    } else {
+      // Si la suscripción ya existe, actualiza el stripeCustomerId si no está presente
+      if (!subscription.stripeCustomerId) {
+        subscription.stripeCustomerId = stripeCustomerId;
+      }
     }
 
+    // Guardar la suscripción en la base de datos
     await subscription.save();
 
-    bot.telegram.sendMessage(
+    // Enviar mensaje privado con el botón para comenzar
+    await bot.telegram.sendMessage(
       userId,
-      `¡Gracias por suscribirte! Tu suscripción ha sido activada con éxito.`
+      `¡Gracias por suscribirte! Tu suscripción ha sido activada con éxito. Haz clic en el botón de abajo para acceder a las opciones.`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Comenzar", callback_data: "start_access" }],
+          ],
+        },
+      }
     );
 
     res.send(
@@ -118,5 +136,6 @@ exports.handleSuccess = async (req, res) => {
     res.status(500).send("Hubo un problema al completar tu suscripción.");
   }
 };
+
 
 

@@ -143,25 +143,6 @@ const handleSubscriptionDeleted = async (event) => {
   }
 };
 
-const checkSubscriptionStatus = async (userId) => {
-  try {
-    const subscription = await Subscription.findOne({ userId });
-
-    if (subscription) {
-      if (subscription.status === "active") {
-        console.log("La suscripción está activa.");
-      } else {
-        console.log(
-          `La suscripción no está activa. Estado actual: ${subscription.status}`
-        );
-      }
-    } else {
-      console.log("No se encontró la suscripción para el usuario.");
-    }
-  } catch (err) {
-    console.error("Error al verificar el estado de la suscripción:", err);
-  }
-};
 
 const handleCheckoutSessionCompleted = async (event) => {
   const session = event.data.object;
@@ -191,5 +172,25 @@ const handleCheckoutSessionCompleted = async (event) => {
     }
   } catch (err) {
     console.error("Error handling checkout.session.completed:", err);
+  }
+};
+
+const checkSubscriptionStatus = async (userId) => {
+  try {
+    const subscription = await Subscription.findOne({ userId });
+
+    if (subscription) {
+      if (subscription.status === "active") {
+        console.log("La suscripción está activa.");
+      } else {
+        console.log(
+          `La suscripción no está activa. Estado actual: ${subscription.status}`
+        );
+      }
+    } else {
+      console.log("No se encontró la suscripción para el usuario.");
+    }
+  } catch (err) {
+    console.error("Error al verificar el estado de la suscripción:", err);
   }
 };

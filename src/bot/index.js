@@ -1,4 +1,4 @@
-const { Telegraf } = require("telegraf");
+const { Telegraf, session } = require("telegraf");
 const { botToken } = require("../../config/env");
 const bot = new Telegraf(botToken);
 
@@ -6,6 +6,8 @@ const bot = new Telegraf(botToken);
 require("./middlewares")(bot);
 const trackingMiddleware = require("./middlewares");
 const suscriptionsTopic = process.env.TOPIC_SUSCRIPTIONS;
+
+bot.use(session());
 
 // Comando /start
 bot.start((ctx) => {
@@ -57,6 +59,94 @@ bot.start((ctx) => {
   }
 });
 
+bot.on("text", async (ctx) => {
+  if (!ctx.session) {
+    ctx.session = {}; // Inicializa la sesión si no está definida
+  }
+
+  if (ctx.session.waitingForCDNumber) {
+    const cdNumber = ctx.message.text;
+
+    // Validar que el número tenga 9 dígitos
+    if (/^\d{9}$/.test(cdNumber)) {
+      // Editar el mensaje original para mostrar la confirmación y las opciones adicionales
+      if (ctx.session.messageIdToEdit) {
+        try {
+          await ctx.telegram.editMessageText(
+            ctx.chat.id,
+            ctx.session.messageIdToEdit,
+            undefined, // inline_message_id (si aplica)
+            `Número de CD (${cdNumber}) recibido correctamente.`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: "Agregar Otro",
+                      callback_data: "add_new_telegrama",
+                    },
+                  ],
+                  [
+                    {
+                      text: "Ver Seguimientos",
+                      callback_data: "view_all_telegramas",
+                    },
+                  ],
+                  [
+                    {
+                      text: "Volver al Menú Principal",
+                      callback_data: "back_to_main",
+                    },
+                  ],
+                ],
+              },
+            }
+          );
+        } catch (error) {
+          console.error("Error al editar el mensaje:", error);
+          ctx.reply(
+            "Hubo un problema al actualizar el mensaje. Por favor, intenta nuevamente."
+          );
+        }
+      }
+
+      // Eliminar el mensaje que contiene el número de 9 dígitos ingresado por el usuario
+      setTimeout(() => {
+        ctx.deleteMessage(ctx.message.message_id).catch((err) => {
+          console.error("Error al eliminar el mensaje del usuario:", err);
+        });
+      }, 3000); // 3000 milisegundos = 3 segundos (puedes ajustar este tiempo)
+
+      // Resetea el estado
+      ctx.session.waitingForCDNumber = false;
+    } else {
+      // Si el número no es válido, solicita nuevamente, editando el mensaje original
+      if (ctx.session.messageIdToEdit) {
+        try {
+          await ctx.telegram.editMessageText(
+            ctx.chat.id,
+            ctx.session.messageIdToEdit,
+            undefined, // inline_message_id (si aplica)
+            "El número ingresado no es válido. Asegúrate de que tenga 9 dígitos. Por favor, inténtalo de nuevo:",
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: "Volver", callback_data: "tracking_telegramas" }],
+                ],
+              },
+            }
+          );
+        } catch (error) {
+          console.error("Error al editar el mensaje:", error);
+          ctx.reply(
+            "Hubo un problema al actualizar el mensaje. Por favor, intenta nuevamente."
+          );
+        }
+      }
+    }
+  }
+});
+
 // Acción para el botón de suscripción
 bot.action("suscribirme", (ctx) => {
   require("../controllers/subscriptionBotController").handleBotSubscription(
@@ -64,10 +154,9 @@ bot.action("suscribirme", (ctx) => {
   );
 });
 
-bot.command(
-  "comenzar",
-  require("../controllers/subscriptionBotController").handleBotAccess
-);
+bot.action("start_access", (ctx) => {
+  require("../controllers/subscriptionBotController").handleBotAccess(ctx);
+});
 
 bot.action(
   "subscription_info",
@@ -106,6 +195,26 @@ bot.action(
   "back_to_main",
   require("../controllers/subscriptionBotController").handleBackToMain
 );
+
+bot.action("add_new_telegrama", async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleAddNewTelegrama(
+    ctx
+  ); // Llama a la función que muestra el nuevo menú
+});
+
+bot.action("tracking_telegramas", async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleTrackingTelegramas(
+    ctx
+  ); // Vuelve al menú anterior
+});
+
+bot.action("add_carta_documento", async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleAddCartaDocumento(
+    ctx
+  ); // Solicita el número de CD
+});
+// También asegúrate de manejar los callback para 'add_carta_documento' y 'add_telegrama'
+// para que realicen la acción deseada, como mostrar un formulario o iniciar un seguimiento.
 
 bot.catch((err, ctx) => {
   console.error(`Error en el bot para ${ctx.updateType}:`, err);

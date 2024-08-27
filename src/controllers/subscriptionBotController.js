@@ -1,6 +1,12 @@
 const bot = require("../bot");
 const Subscription = require("../models/subscriptionModel");
 const moment = require("moment");
+const { stripeSecretKey } = require("../../config/env");
+const Stripe = require("stripe");
+const Tracking = require("../models/trackingModel");
+const stripe = Stripe(stripeSecretKey);
+
+const URL_BASE = process.env.BASE_URL;
 
 exports.handleBotSubscription = async (ctx) => {
   const chatId = ctx.chat.id;
@@ -93,16 +99,31 @@ exports.handleBotAccess = async (ctx) => {
       }
     } else {
       console.log("No active subscription found");
+      const chatId = ctx.chat.id;
+      const userId = ctx.from.id;
+      const firstName = ctx.from.first_name;
+
+      const BASE_URL = process.env.BASE_URL;
+
+      const subscriptionUrl = `${BASE_URL}/suscripcion?userId=${userId}&name=${encodeURIComponent(
+        firstName
+      )}&chatid=${chatId}`;
 
       if (ctx.update.callback_query && ctx.update.callback_query.message) {
         await ctx.editMessageText(
-          "No tienes una suscripción activa. Usa este enlace para suscribirte: [enlace de suscripción]",
+          "No tienes una suscripción activa. presiona el botón para suscribirte:",
           {
             chat_id: ctx.chat.id,
             message_id: ctx.update.callback_query.message.message_id,
             reply_markup: {
               inline_keyboard: [
-                [{ text: "Volver", callback_data: "back_to_main" }],
+                [
+                  {
+                    text: "Suscribirme",
+                    url: subscriptionUrl, // El enlace de suscripción se pasa como URL en el botón
+                  },
+                  { text: "Volver", callback_data: "back_to_main" },
+                ],
               ],
             },
           }
@@ -134,42 +155,15 @@ exports.handleBotAccess = async (ctx) => {
   }
 };
 
-
 exports.handleSubscriptionInfo = async (ctx) => {
   const userId = ctx.from.id;
 
   try {
+    // Buscar la suscripción en tu base de datos
     const subscription = await Subscription.findOne({ userId: userId });
 
-    if (subscription) {
-      // Editar el mensaje existente para mostrar la información de la suscripción
-      await ctx.editMessageText(
-        `Datos de tu suscripción:\n\nEstado: ${
-          subscription.status
-        }\nFecha de suscripción: ${moment(subscription.subscriptionDate).format(
-          "DD/MM/YYYY"
-        )}`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "Cancelar Suscripción",
-                  callback_data: "cancel_subscription",
-                },
-              ],
-              [
-                {
-                  text: "Cambiar Método de Pago",
-                  callback_data: "change_payment_method",
-                },
-              ],
-              [{ text: "Volver", callback_data: "back_to_main" }],
-            ],
-          },
-        }
-      );
-    } else {
+    if (!subscription) {
+      console.log("No se encontró la suscripción en la base de datos.");
       await ctx.editMessageText("No se encontraron datos de tu suscripción.", {
         reply_markup: {
           inline_keyboard: [
@@ -177,10 +171,115 @@ exports.handleSubscriptionInfo = async (ctx) => {
           ],
         },
       });
+      return;
     }
+
+    console.log("Database status subscription", subscription.status);
+
+    // Obtener detalles de la suscripción desde Stripe
+    const stripeSubscription = await stripe.subscriptions.list({
+      customer: subscription.stripeCustomerId,
+      limit: 1,
+    });
+
+    if (!stripeSubscription || stripeSubscription.data.length === 0) {
+      console.log("No se encontraron datos de suscripción en Stripe.");
+      await ctx.editMessageText(
+        "No se encontraron datos de suscripción en Stripe.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Volver", callback_data: "back_to_main" }],
+            ],
+          },
+        }
+      );
+      return;
+    }
+
+    const subscriptionDetails = stripeSubscription.data[0];
+    if (!subscriptionDetails || !subscriptionDetails.status) {
+      console.log("No se pudo obtener el estado de la suscripción.");
+      await ctx.editMessageText(
+        "Hubo un problema al obtener los datos de tu suscripción.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Volver", callback_data: "back_to_main" }],
+            ],
+          },
+        }
+      );
+      return;
+    }
+
+    console.log("Stripe status subscription", subscriptionDetails.status);
+
+    // Intentar obtener la próxima fecha de facturación
+    let nextInvoiceDate = null;
+    try {
+      const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+        customer: subscription.stripeCustomerId,
+      });
+      nextInvoiceDate = moment
+        .unix(upcomingInvoice.next_payment_attempt)
+        .format("DD/MM/YYYY");
+    } catch (err) {
+      console.log("No upcoming invoice found or error retrieving it:", err);
+    }
+
+    // Formatear las fechas y detalles que quieras mostrar
+    const startDate = moment
+      .unix(subscriptionDetails.start_date)
+      .format("DD/MM/YYYY");
+    const currentPeriodEnd = moment
+      .unix(subscriptionDetails.current_period_end)
+      .format("DD/MM/YYYY");
+    const status = subscriptionDetails.status;
+
+    // Mensaje adicional si la suscripción está cancelada pero activa hasta el final del ciclo
+    let cancellationMessage = "";
+    if (subscriptionDetails.cancel_at_period_end) {
+      cancellationMessage =
+        "\nNota: Tu suscripción ha sido cancelada y finalizará el " +
+        currentPeriodEnd +
+        ".";
+    }
+
+    // Preparar el mensaje con la próxima fecha de facturación (si existe)
+    let invoiceMessage = nextInvoiceDate
+      ? `\nPróxima fecha de facturación: ${nextInvoiceDate}`
+      : `\nPróxima fecha de facturación: No disponible`;
+
+    // Editar el mensaje existente para mostrar la información de la suscripción
+    await ctx.editMessageText(
+      `Datos de tu suscripción:\n\nEstado: ${status}\nFecha de suscripción: ${startDate}\nFin del período actual: ${currentPeriodEnd}${invoiceMessage}${cancellationMessage}`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Administrar Suscripción",
+                callback_data: "change_payment_method",
+              },
+            ],
+            [{ text: "Volver", callback_data: "back_to_main" }],
+          ],
+        },
+      }
+    );
   } catch (error) {
     console.error("Error al obtener los datos de suscripción:", error);
-    await ctx.reply("Hubo un problema al obtener los datos de tu suscripción.");
+    const sentMessage = await ctx.reply(
+      "Hubo un problema al obtener los datos de tu suscripción."
+    );
+
+    // Elimina el mensaje después de 5 segundos
+    setTimeout(() => {
+      ctx.deleteMessage(sentMessage.message_id).catch((err) => {
+        console.error("Error al eliminar el mensaje:", err);
+      });
+    }, 5000); // 5000 milisegundos = 5 segundos
   }
 };
 
@@ -277,6 +376,106 @@ exports.handleTrackingTelegramas = async (ctx) => {
   );
 };
 
+// Este método maneja el click en "Agregar Nuevo Telegrama/Carta"
+exports.handleAddNewTelegrama = async (ctx) => {
+  try {
+    await ctx.editMessageText("Elige la opción deseada:", {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "Carta Documento Correo Argentino",
+              callback_data: "add_carta_documento",
+            },
+          ],
+          [
+            {
+              text: "Telegrama Correo Argentino",
+              callback_data: "add_telegrama",
+            },
+          ],
+          [
+            { text: "Volver", callback_data: "tracking_telegramas" }, // Vuelve al menú anterior
+          ],
+        ],
+      },
+    });
+  } catch (error) {
+    console.error("Error al mostrar el menú de opciones:", error);
+    ctx.reply(
+      "Hubo un problema al mostrar las opciones. Por favor, intenta nuevamente."
+    );
+  }
+};
+
+exports.handleTrackingTelegramas = async (ctx) => {
+  const userId = ctx.from.id;
+  const trackingTelegramas = await getTrackingTelegramas(userId); // Implementar la función para obtener los datos
+
+  const elementosMsg =
+    trackingTelegramas.length > 0
+      ? trackingTelegramas
+          .map((item) => `Número de telegrama/carta: ${item.numero}`)
+          .join("\n")
+      : "Sin elementos";
+
+  await ctx.editMessageText(
+    `Tus telegramas/cartas seguidas:\n\n${elementosMsg}`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "Agregar Nuevo Telegrama/Carta",
+              callback_data: "add_new_telegrama", // Maneja el evento en handleAddNewTelegrama
+            },
+          ],
+          [
+            {
+              text: "Ver Todos los Telegramas/Cartas",
+              callback_data: "view_all_telegramas",
+            },
+          ],
+          [{ text: "Volver", callback_data: "tracking_options" }],
+        ],
+      },
+    }
+  );
+};
+
+exports.handleAddCartaDocumento = async (ctx) => {
+  try {
+    if (!ctx.session) {
+      ctx.session = {}; // Inicializa la sesión si no está definida
+    }
+
+    // Envía un mensaje solicitando el número de CD de 9 dígitos y guarda el ID del mensaje
+    const sentMessage = await ctx.editMessageText(
+      "Escriba el número de CD de 9 dígitos:",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "Volver", callback_data: "tracking_telegramas" }, // Callback para volver al menú anterior
+            ],
+          ],
+        },
+      }
+    );
+
+    // Guarda el ID del mensaje para editarlo después de la validación
+    ctx.session.messageIdToEdit = sentMessage.message_id;
+
+    // Configura el bot para esperar la entrada del usuario
+    ctx.session.waitingForCDNumber = true;
+  } catch (error) {
+    console.error("Error al solicitar el número de CD:", error);
+    ctx.reply(
+      "Hubo un problema al solicitar el número de CD. Intenta nuevamente."
+    );
+  }
+};
+
 exports.handleBackToMain = async (ctx) => {
   try {
     const newText = "Selecciona una opción:";
@@ -294,6 +493,7 @@ exports.handleBackToMain = async (ctx) => {
               },
             ],
             [{ text: "Servicios", callback_data: "tracking_options" }],
+            [{ text: "Sitio Web", url: URL_BASE }],
           ],
         },
       });
@@ -340,15 +540,117 @@ exports.handleChangePaymentMethod = async (ctx) => {
   const userId = ctx.from.id;
 
   try {
-    // Aquí puedes redirigir al usuario a una página para cambiar el método de pago o manejar el proceso de actualización directamente.
-    await ctx.reply(
-      "Por favor, sigue este enlace para cambiar tu método de pago: [Enlace a Stripe]"
+    // Obtener la suscripción del usuario desde la base de datos
+    const subscription = await Subscription.findOne({ userId: userId });
+
+    if (!subscription || !subscription.stripeCustomerId) {
+      await ctx.reply(
+        "No se pudo encontrar una suscripción activa. Por favor, verifica tu estado de suscripción."
+      );
+      return;
+    }
+
+    // Crear una sesión del portal de facturación de Stripe
+    const billingPortalSession = await stripe.billingPortal.sessions.create({
+      customer: subscription.stripeCustomerId,
+      return_url: process.env.BASE_URL, // URL a la que se redirige al usuario después de cambiar el método de pago
+    });
+
+    // Enviar el enlace al portal de facturación al usuario
+    await ctx.editMessageText(
+      `Por favor, sigue este enlace para administrar tu suscripción:`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Administrar suscripción",
+                url: billingPortalSession.url, // Enlace al portal de facturación
+              },
+            ],
+            [
+              {
+                text: "Volver",
+                callback_data: "subscription_info", // Callback para ir atrás
+              },
+            ],
+          ],
+        },
+      }
     );
   } catch (error) {
     console.error("Error al cambiar el método de pago:", error);
     await ctx.reply(
       "Hubo un problema al cambiar tu método de pago. Por favor, inténtalo nuevamente más tarde."
     );
+  }
+};
+
+exports.handleNewTracking = async (ctx) => {
+  const userId = ctx.from.id;
+  const { trackingCode, trackingType, notificationId } = ctx.request.body; // Supongamos que estos datos vienen en la solicitud
+
+  try {
+    // Contar los seguimientos activos del usuario
+    const activeTrackings = await Tracking.countDocuments({
+      userId: userId,
+      isCompleted: false,
+    });
+
+    // Verificar si el usuario ha alcanzado el límite de 10 seguimientos activos
+    if (activeTrackings >= 10) {
+      return ctx.reply(
+        "Has alcanzado el límite de 10 seguimientos activos. Elimina un seguimiento existente para agregar uno nuevo."
+      );
+    }
+
+    // Crear un nuevo seguimiento
+    const newTracking = new Tracking({
+      userId: userId,
+      notificationId: notificationId,
+      trackingCode: trackingCode,
+      trackingType: trackingType,
+    });
+
+    // Guardar el seguimiento en la base de datos
+    await newTracking.save();
+
+    // Responder al usuario
+    ctx.reply("Nuevo seguimiento agregado exitosamente.");
+  } catch (error) {
+    console.error("Error al agregar el seguimiento:", error);
+    ctx.reply("Hubo un problema al agregar el seguimiento.");
+  }
+};
+
+// Ejemplo de cómo manejar la eliminación de un seguimiento
+exports.handleDeleteTracking = async (ctx) => {
+  const trackingId = ctx.request.body.trackingId; // Supongamos que el ID viene en la solicitud
+
+  try {
+    await Tracking.findByIdAndDelete(trackingId);
+    ctx.reply("Seguimiento eliminado exitosamente.");
+  } catch (error) {
+    console.error("Error al eliminar el seguimiento:", error);
+    ctx.reply("Hubo un problema al eliminar el seguimiento.");
+  }
+};
+
+// Ejemplo de cómo completar un seguimiento
+exports.handleCompleteTracking = async (ctx) => {
+  const trackingId = ctx.request.body.trackingId; // Supongamos que el ID viene en la solicitud
+
+  try {
+    const tracking = await Tracking.findById(trackingId);
+    if (tracking) {
+      await tracking.completeTracking();
+      ctx.reply("Seguimiento marcado como completado.");
+    } else {
+      ctx.reply("No se encontró el seguimiento.");
+    }
+  } catch (error) {
+    console.error("Error al completar el seguimiento:", error);
+    ctx.reply("Hubo un problema al completar el seguimiento.");
   }
 };
 
