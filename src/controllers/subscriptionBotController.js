@@ -5,7 +5,7 @@ const { stripeSecretKey } = require("../../config/env");
 const Stripe = require("stripe");
 const Tracking = require("../models/trackingModel");
 const stripe = Stripe(stripeSecretKey);
-
+const { getTrackingTelegramas } = require("../controllers/trackingController");
 const URL_BASE = process.env.BASE_URL;
 
 exports.handleBotSubscription = async (ctx) => {
@@ -341,41 +341,6 @@ exports.handleTrackingCausas = async (ctx) => {
   });
 };
 
-exports.handleTrackingTelegramas = async (ctx) => {
-  const userId = ctx.from.id;
-  const trackingTelegramas = await getTrackingTelegramas(userId); // Implementar la función para obtener los datos
-
-  const elementosMsg =
-    trackingTelegramas.length > 0
-      ? trackingTelegramas
-          .map((item) => `Número de telegrama/carta: ${item.numero}`)
-          .join("\n")
-      : "Sin elementos";
-
-  await ctx.editMessageText(
-    `Tus telegramas/cartas seguidas:\n\n${elementosMsg}`,
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "Agregar Nuevo Telegrama/Carta",
-              callback_data: "add_new_telegrama",
-            },
-          ],
-          [
-            {
-              text: "Ver Todos los Telegramas/Cartas",
-              callback_data: "view_all_telegramas",
-            },
-          ],
-          [{ text: "Volver", callback_data: "tracking_options" }],
-        ],
-      },
-    }
-  );
-};
-
 // Este método maneja el click en "Agregar Nuevo Telegrama/Carta"
 exports.handleAddNewTelegrama = async (ctx) => {
   try {
@@ -415,7 +380,7 @@ exports.handleTrackingTelegramas = async (ctx) => {
   const elementosMsg =
     trackingTelegramas.length > 0
       ? trackingTelegramas
-          .map((item) => `Número de telegrama/carta: ${item.numero}`)
+          .map((item) => `Número: CD${item.trackingCode}`)
           .join("\n")
       : "Sin elementos";
 
@@ -660,7 +625,3 @@ async function getTrackingCausas(userId) {
   return []; // Retornar un array de objetos de causas
 }
 
-async function getTrackingTelegramas(userId) {
-  // Implementar lógica para obtener los telegramas/cartas del usuario desde la base de datos
-  return []; // Retornar un array de objetos de telegramas/cartas
-}

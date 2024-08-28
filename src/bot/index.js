@@ -5,6 +5,7 @@ const bot = new Telegraf(botToken);
 // Importar middlewares
 require("./middlewares")(bot);
 const trackingMiddleware = require("./middlewares");
+const Tracking = require("../models/trackingModel");
 const suscriptionsTopic = process.env.TOPIC_SUSCRIPTIONS;
 
 bot.use(session());
@@ -70,6 +71,18 @@ bot.on("text", async (ctx) => {
     // Validar que el número tenga 9 dígitos
     if (/^\d{9}$/.test(cdNumber)) {
       // Editar el mensaje original para mostrar la confirmación y las opciones adicionales
+      const newTracking = new Tracking({
+        userId: ctx.from.id, // userId del usuario de Telegram
+        trackingCode: cdNumber, // Número de 9 dígitos ingresado
+        trackingType: "carta_documento"
+      });
+
+      await newTracking.save(); // Guardar en la base de datos
+
+      // Confirmación en la consola
+      console.log(
+        `Tracking guardado para el usuario ${ctx.from.id} con código ${cdNumber}.`
+      );
       if (ctx.session.messageIdToEdit) {
         try {
           await ctx.telegram.editMessageText(

@@ -3,13 +3,12 @@ const Schema = mongoose.Schema;
 
 const trackingSchema = new Schema({
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String,
     ref: 'User', // Referencia al modelo de usuario
     required: true
   },
   notificationId: {
     type: String,
-    required: true
   },
   trackingCode: {
     type: String,
