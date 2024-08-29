@@ -380,7 +380,7 @@ exports.handleTrackingTelegramas = async (ctx) => {
   const elementosMsg =
     trackingTelegramas.length > 0
       ? trackingTelegramas
-          .map((item) => `Número: CD${item.trackingCode}`)
+          .map((item) => `CD${item.trackingCode}`)
           .join("\n")
       : "Sin elementos";
 

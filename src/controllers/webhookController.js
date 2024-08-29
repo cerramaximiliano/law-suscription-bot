@@ -97,6 +97,7 @@ const handlePaymentFailed = async (event) => {
 
 // Manejar una suscripción actualizada
 const handleSubscriptionUpdated = async (event) => {
+  console.log("handle webhook")
   const subscriptionId = event.data.object.id;
   const customerId = event.data.object.customer;
   const newStatus = event.data.object.status; // Obtener el nuevo estado de la suscripción
