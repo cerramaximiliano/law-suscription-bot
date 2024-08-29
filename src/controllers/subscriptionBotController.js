@@ -343,35 +343,57 @@ exports.handleTrackingCausas = async (ctx) => {
 
 // Este método maneja el click en "Agregar Nuevo Telegrama/Carta"
 exports.handleAddNewTelegrama = async (ctx) => {
+  const userId = ctx.from.id;
+
   try {
-    await ctx.editMessageText("Elige la opción deseada:", {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "Carta Documento Correo Argentino",
-              callback_data: "add_carta_documento",
-            },
-          ],
-          [
-            {
-              text: "Telegrama Correo Argentino",
-              callback_data: "add_telegrama",
-            },
-          ],
-          [
-            { text: "Volver", callback_data: "tracking_telegramas" }, // Vuelve al menú anterior
-          ],
-        ],
-      },
+    // Contar los registros activos (isCompleted: false) del usuario
+    const activeTrackingsCount = await Tracking.countDocuments({
+      userId: userId,
+      isCompleted: false,
     });
+
+    // Verificar si se ha alcanzado el límite de 10 registros activos
+    if (activeTrackingsCount >= 10) {
+      await ctx.editMessageText(
+        "Has alcanzado el límite de 10 seguimientos activos. Elimina un seguimiento  para agregar uno nuevo.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Volver", callback_data: "tracking_telegramas" }],
+            ],
+          },
+        }
+      );
+    } else {
+      // Mostrar el menú para agregar un nuevo telegrama/carta si no se ha alcanzado el límite
+      await ctx.editMessageText("Elige la opción deseada:", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Carta Documento Correo Argentino",
+                callback_data: "add_carta_documento",
+              },
+            ],
+            [
+              {
+                text: "Telegrama Correo Argentino",
+                callback_data: "add_telegrama",
+              },
+            ],
+            [{ text: "Volver", callback_data: "tracking_telegramas" }], // Vuelve al menú anterior
+          ],
+        },
+      });
+    }
   } catch (error) {
-    console.error("Error al mostrar el menú de opciones:", error);
-    ctx.reply(
-      "Hubo un problema al mostrar las opciones. Por favor, intenta nuevamente."
+    console.error("Error al verificar el número de seguimientos activos:", error);
+    await ctx.reply(
+      "Hubo un problema al verificar tus seguimientos activos. Por favor, intenta nuevamente."
     );
   }
 };
+
 
 exports.handleTrackingTelegramas = async (ctx) => {
   const userId = ctx.from.id;
@@ -397,6 +419,12 @@ exports.handleTrackingTelegramas = async (ctx) => {
           ],
           [
             {
+              text: "Eliminar Seguimiento",
+              callback_data: "delete_tracking_menu", // Dirige al menú de eliminación
+            },
+          ],
+          [
+            {
               text: "Ver Todos los Telegramas/Cartas",
               callback_data: "view_all_telegramas",
             },
@@ -407,6 +435,93 @@ exports.handleTrackingTelegramas = async (ctx) => {
     }
   );
 };
+
+
+exports.handleDeleteTrackingMenu = async (ctx) => {
+  const userId = ctx.from.id;
+  const trackingTelegramas = await getTrackingTelegramas(userId); // Obtener los datos
+
+  // Verificar si hay elementos para eliminar
+  if (trackingTelegramas.length === 0) {
+    await ctx.editMessageText("No tienes seguimientos activos para eliminar.", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Volver", callback_data: "tracking_telegramas" }],
+        ],
+      },
+    });
+    return;
+  }
+
+  // Crear botones para cada elemento de seguimiento
+  const buttons = trackingTelegramas.map((item) => [
+    {
+      text: `CD${item.trackingCode}`,
+      callback_data: `delete_tracking_${item._id}`, // Usamos el ID del elemento para identificarlo
+    },
+  ]);
+
+  // Agregar el botón de "Volver"
+  buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
+
+  await ctx.editMessageText(
+    "Elige el seguimiento que deseas eliminar:",
+    {
+      reply_markup: {
+        inline_keyboard: buttons,
+      },
+    }
+  );
+};
+
+exports.handleDeleteTracking = async (ctx) => {
+  const trackingId = ctx.update.callback_query.data.split('_').pop(); // Obtener el ID del seguimiento desde el callback_data
+
+  try {
+    // Encontrar y actualizar el seguimiento, marcando isCompleted como true
+    const tracking = await Tracking.findById(trackingId);
+    if (tracking) {
+      tracking.isCompleted = true;
+      await tracking.save();
+
+      await ctx.editMessageText(
+        `El seguimiento CD${tracking.trackingCode} ha sido marcado como completado.`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Volver", callback_data: "tracking_telegramas" }],
+            ],
+          },
+        }
+      );
+    } else {
+      await ctx.editMessageText(
+        "No se encontró el seguimiento. Por favor, intenta nuevamente.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Volver", callback_data: "tracking_telegramas" }],
+            ],
+          },
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Error al marcar el seguimiento como completado:", error);
+    await ctx.editMessageText(
+      "Hubo un problema al intentar eliminar el seguimiento. Por favor, intenta nuevamente.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: "tracking_telegramas" }],
+          ],
+        }
+      }
+    );
+  }
+};
+
+
 
 exports.handleAddCartaDocumento = async (ctx) => {
   try {
@@ -590,16 +705,135 @@ exports.handleNewTracking = async (ctx) => {
 
 // Ejemplo de cómo manejar la eliminación de un seguimiento
 exports.handleDeleteTracking = async (ctx) => {
-  const trackingId = ctx.request.body.trackingId; // Supongamos que el ID viene en la solicitud
-
   try {
+    // Extraer el trackingId del callback_data
+    const trackingId = ctx.update.callback_query.data.split('_').pop(); // Extraer el ID del seguimiento desde el callback_data
+
+    // Buscar y eliminar el seguimiento
     await Tracking.findByIdAndDelete(trackingId);
-    ctx.reply("Seguimiento eliminado exitosamente.");
+
+    // Editar el mensaje para confirmar la eliminación
+    await ctx.editMessageText("Seguimiento eliminado exitosamente.", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Volver", callback_data: "tracking_telegramas" }],
+        ],
+      },
+    });
   } catch (error) {
     console.error("Error al eliminar el seguimiento:", error);
-    ctx.reply("Hubo un problema al eliminar el seguimiento.");
+
+    // Editar el mensaje para informar del problema
+    await ctx.editMessageText("Hubo un problema al eliminar el seguimiento.", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Volver", callback_data: "tracking_telegramas" }],
+        ],
+      },
+    });
   }
 };
+
+
+exports.handleViewAllTelegramas = async (ctx) => {
+  const userId = ctx.from.id;
+
+  try {
+    // Buscar todos los telegramas/cartas del usuario que no estén completados
+    const trackingTelegramas = await Tracking.find({ userId: userId, isCompleted: false });
+
+    if (trackingTelegramas.length === 0) {
+      await ctx.editMessageText("No tienes telegramas/cartas activas.", {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: "tracking_telegramas" }],
+          ],
+        },
+      });
+      return;
+    }
+
+    // Crear botones para cada telegrama/carta
+    const buttons = trackingTelegramas.map((item) => [
+      {
+        text: `CD${item.trackingCode}`,
+        callback_data: `view_tracking_movements_${item._id}`, // Usamos el ID del elemento para identificarlo
+      },
+    ]);
+
+    // Agregar el botón de "Volver"
+    buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
+
+    // Editar el mensaje para mostrar todos los telegramas/cartas
+    await ctx.editMessageText("Selecciona un telegrama/carta para ver sus movimientos:", {
+      reply_markup: {
+        inline_keyboard: buttons,
+      },
+    });
+  } catch (error) {
+    console.error("Error al obtener los telegramas/cartas:", error);
+    await ctx.editMessageText("Hubo un problema al obtener los telegramas/cartas.", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Volver", callback_data: "tracking_telegramas" }],
+        ],
+      },
+    });
+  }
+};
+
+
+exports.handleViewTrackingMovements = async (ctx) => {
+  try {
+    // Extraer el trackingId del callback_data
+    const trackingId = ctx.update.callback_query.data.split('_').pop();
+
+    // Buscar el seguimiento por ID
+    const tracking = await Tracking.findById(trackingId);
+
+    if (!tracking) {
+      await ctx.editMessageText("No se encontró el seguimiento. Por favor, intenta nuevamente.", {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: "view_all_telegramas" }],
+          ],
+        },
+      });
+      return;
+    }
+
+    // Obtener los movimientos del seguimiento
+    const movements = tracking.movements;
+
+    let message;
+    if (movements.length === 0) {
+      message = "No hay movimientos.";
+    } else {
+      message = movements
+        .map((movement) => `Fecha: ${moment(movement.date).format("DD/MM/YYYY")}\nPlanta: ${movement.planta}\nHistoria: ${movement.historia}\nEstado: ${movement.estado}`)
+        .join("\n\n");
+    }
+
+    // Editar el mensaje para mostrar los movimientos
+    await ctx.editMessageText(message, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Volver", callback_data: "view_all_telegramas" }],
+        ],
+      },
+    });
+  } catch (error) {
+    console.error("Error al obtener los movimientos del seguimiento:", error);
+    await ctx.editMessageText("Hubo un problema al obtener los movimientos del seguimiento.", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Volver", callback_data: "view_all_telegramas" }],
+        ],
+      },
+    });
+  }
+};
+
 
 // Ejemplo de cómo completar un seguimiento
 exports.handleCompleteTracking = async (ctx) => {

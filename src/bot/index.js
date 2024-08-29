@@ -204,6 +204,24 @@ bot.action(
   require("../controllers/subscriptionBotController").handleTrackingTelegramas
 );
 
+bot.action("delete_tracking_menu", async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleDeleteTrackingMenu(ctx);
+});
+
+bot.action(/^delete_tracking_\w+$/, async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleDeleteTracking(ctx);
+});
+
+bot.action("view_all_telegramas", async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleViewAllTelegramas(ctx);
+});
+
+bot.action(/^view_tracking_movements_\w+$/, async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleViewTrackingMovements(ctx);
+});
+
+
+
 bot.action(
   "back_to_main",
   require("../controllers/subscriptionBotController").handleBackToMain
