@@ -4,7 +4,7 @@ const Subscription = require("../models/subscriptionModel");
 const bot = require("../bot");
 const stripe = Stripe(stripeSecretKey);
 const BASE_URL = process.env.BASE_URL;
-
+const path = require("path");
 
 exports.getCustomerById = async (customerId) => {
   try {
@@ -12,7 +12,7 @@ exports.getCustomerById = async (customerId) => {
     //console.log('Customer found:', customer);
     return customer;
   } catch (error) {
-    console.error('Error retrieving customer:', error);
+    console.error("Error retrieving customer:", error);
   }
 };
 
@@ -25,7 +25,8 @@ const findOrCreateCustomerByTelegramId = async (userId, name) => {
 
     // Filtrar clientes por el userId en metadata
     const existingCustomer = customers.data.find(
-      (customer) => customer.metadata && customer.metadata.telegram_user_id === userId
+      (customer) =>
+        customer.metadata && customer.metadata.telegram_user_id === userId
     );
 
     if (existingCustomer) {
@@ -45,10 +46,12 @@ const findOrCreateCustomerByTelegramId = async (userId, name) => {
   }
 };
 
-
 exports.createSubscription = async (req, res) => {
   const { userId, name, chatid } = req.query;
-  console.log(userId, name, chatid)
+  if (!userId || !name || !chatid) {
+    res.sendFile(path.join(__dirname, "../../public/views", "wrong-subscription.html"));
+    return 
+  }
   try {
     // Buscar o crear el cliente en Stripe utilizando el userId de Telegram
     const customer = await findOrCreateCustomerByTelegramId(userId, name);
@@ -80,17 +83,15 @@ exports.createSubscription = async (req, res) => {
     res.redirect(303, session.url);
   } catch (error) {
     console.error("Error al crear sesión de Stripe:", error);
-    res.status(500).send("Hubo un problema al procesar tu pago.");
+    res.sendFile(
+      path.join(__dirname, "../../public", "error-law-assistant.html")
+    );
   }
 };
 
-
-
 exports.handleSuccess = async (req, res) => {
   const { session_id, userId, chatid } = req.query;
-  console.log(session_id, userId,  chatid)
   console.log("handle success");
-
   try {
     // Recuperar la sesión de Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id);
@@ -129,14 +130,11 @@ exports.handleSuccess = async (req, res) => {
       }
     );
 
-    res.send(
-      "¡Gracias por tu suscripción! Ahora puedes acceder a los servicios."
+    res.sendFile(
+      path.join(__dirname, "../../public", "success-law-assistant.html")
     );
   } catch (error) {
     console.error("Error al procesar la sesión de Stripe:", error);
-    res.status(500).send("Hubo un problema al completar tu suscripción.");
+    res.sendFile(path.join(__dirname, "../../public", "error-session.html"));
   }
 };
-
-
-

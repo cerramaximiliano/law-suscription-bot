@@ -9,7 +9,7 @@ const { getTrackingTelegramas } = require("../controllers/trackingController");
 const URL_BASE = process.env.BASE_URL;
 
 exports.handleBotSubscription = async (ctx) => {
-  const chatId = ctx.chat.type;
+  const chatId = ctx.chat.id;
   const userId = ctx.from.id;
   const firstName = ctx.from.first_name;
 
@@ -84,7 +84,7 @@ exports.handleBotAccess = async (ctx) => {
       if (ctx.update.callback_query && ctx.update.callback_query.message) {
         console.log("Editing message to show options");
         await ctx.editMessageText("Selecciona una opción:", {
-          chat_id: ctx.chat.type,
+          chat_id: ctx.chat.id,
           message_id: ctx.update.callback_query.message.message_id,
           reply_markup: {
             inline_keyboard: [
@@ -99,7 +99,7 @@ exports.handleBotAccess = async (ctx) => {
       }
     } else {
       console.log("No active subscription found");
-      const chatId = ctx.chat.type;
+      const chatId = ctx.chat.id;
       const userId = ctx.from.id;
       const firstName = ctx.from.first_name;
 
@@ -110,7 +110,7 @@ exports.handleBotAccess = async (ctx) => {
       )}&chatid=${chatId}`;
 
       if (ctx.update.callback_query && ctx.update.callback_query.message) {
-        const chatId = ctx.chat.type;
+        const chatId = ctx.chat.id;
         const userId = ctx.from.id;
         const firstName = ctx.from.first_name;
 
@@ -123,7 +123,7 @@ exports.handleBotAccess = async (ctx) => {
         await ctx.editMessageText(
           "No tienes una suscripción activa. Presiona el botón para suscribirte:",
           {
-            chat_id: ctx.chat.type,
+            chat_id: ctx.chat.id,
             message_id: ctx.update.callback_query.message.message_id,
             reply_markup: {
               inline_keyboard: [
@@ -150,7 +150,7 @@ exports.handleBotAccess = async (ctx) => {
       await ctx.editMessageText(
         "Hubo un problema al verificar tu suscripción. Por favor, intenta nuevamente más tarde.",
         {
-          chat_id: ctx.chat.type,
+          chat_id: ctx.chat.id,
           message_id: ctx.update.callback_query.message.message_id,
           reply_markup: {
             inline_keyboard: [
@@ -171,7 +171,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
   try {
     // Buscar la suscripción en tu base de datos
     const subscription = await Subscription.findOne({ userId: userId });
-    const chatId = ctx.chat.type;
+    const chatId = ctx.chat.id;
     const firstName = ctx.from.first_name;
 
     const BASE_URL = process.env.BASE_URL;
