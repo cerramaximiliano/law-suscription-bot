@@ -130,7 +130,6 @@ const handleSubscriptionDeleted = async (event) => {
   if (customer.metadata) {
     userId = customer.metadata.telegram_user_id;
   }
-  console.log(userId);
   try {
     const subscription = await Subscription.findOne({ userId: userId });
     console.log(subscription);

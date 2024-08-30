@@ -48,7 +48,7 @@ const findOrCreateCustomerByTelegramId = async (userId, name) => {
 
 exports.createSubscription = async (req, res) => {
   const { userId, name, chatid } = req.query;
-
+  console.log(userId, name, chatid)
   try {
     // Buscar o crear el cliente en Stripe utilizando el userId de Telegram
     const customer = await findOrCreateCustomerByTelegramId(userId, name);
@@ -88,6 +88,7 @@ exports.createSubscription = async (req, res) => {
 
 exports.handleSuccess = async (req, res) => {
   const { session_id, userId, chatid } = req.query;
+  console.log(session_id, userId,  chatid)
   console.log("handle success");
 
   try {

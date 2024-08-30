@@ -9,7 +9,7 @@ const { getTrackingTelegramas } = require("../controllers/trackingController");
 const URL_BASE = process.env.BASE_URL;
 
 exports.handleBotSubscription = async (ctx) => {
-  const chatId = ctx.chat.id;
+  const chatId = ctx.chat.type;
   const userId = ctx.from.id;
   const firstName = ctx.from.first_name;
 
@@ -84,7 +84,7 @@ exports.handleBotAccess = async (ctx) => {
       if (ctx.update.callback_query && ctx.update.callback_query.message) {
         console.log("Editing message to show options");
         await ctx.editMessageText("Selecciona una opción:", {
-          chat_id: ctx.chat.id,
+          chat_id: ctx.chat.type,
           message_id: ctx.update.callback_query.message.message_id,
           reply_markup: {
             inline_keyboard: [
@@ -99,7 +99,7 @@ exports.handleBotAccess = async (ctx) => {
       }
     } else {
       console.log("No active subscription found");
-      const chatId = ctx.chat.id;
+      const chatId = ctx.chat.type;
       const userId = ctx.from.id;
       const firstName = ctx.from.first_name;
 
@@ -110,10 +110,20 @@ exports.handleBotAccess = async (ctx) => {
       )}&chatid=${chatId}`;
 
       if (ctx.update.callback_query && ctx.update.callback_query.message) {
+        const chatId = ctx.chat.type;
+        const userId = ctx.from.id;
+        const firstName = ctx.from.first_name;
+
+        const BASE_URL = process.env.BASE_URL;
+        console.log(118)
+        const subscriptionUrl = `${BASE_URL}/suscripcion?userId=${userId}&name=${encodeURIComponent(
+          firstName
+        )}&chatid=${chatId}`;
+
         await ctx.editMessageText(
-          "No tienes una suscripción activa. presiona el botón para suscribirte:",
+          "No tienes una suscripción activa. Presiona el botón para suscribirte:",
           {
-            chat_id: ctx.chat.id,
+            chat_id: ctx.chat.type,
             message_id: ctx.update.callback_query.message.message_id,
             reply_markup: {
               inline_keyboard: [
@@ -140,7 +150,7 @@ exports.handleBotAccess = async (ctx) => {
       await ctx.editMessageText(
         "Hubo un problema al verificar tu suscripción. Por favor, intenta nuevamente más tarde.",
         {
-          chat_id: ctx.chat.id,
+          chat_id: ctx.chat.type,
           message_id: ctx.update.callback_query.message.message_id,
           reply_markup: {
             inline_keyboard: [
@@ -161,39 +171,61 @@ exports.handleSubscriptionInfo = async (ctx) => {
   try {
     // Buscar la suscripción en tu base de datos
     const subscription = await Subscription.findOne({ userId: userId });
+    const chatId = ctx.chat.type;
+    const firstName = ctx.from.first_name;
 
+    const BASE_URL = process.env.BASE_URL;
+
+    const subscriptionUrl = `${BASE_URL}/suscripcion?userId=${userId}&name=${encodeURIComponent(
+      firstName
+    )}&chatid=${chatId}`;
+    
     if (!subscription) {
       console.log("No se encontró la suscripción en la base de datos.");
-      await ctx.editMessageText("No se encontraron datos de tu suscripción.", {
+      await ctx.editMessageText("No tienes una suscripción activa. Presiona el botón para suscribirte.", {
         reply_markup: {
           inline_keyboard: [
-            [{ text: "Volver", callback_data: "back_to_main" }],
+            [
+              {
+                text: "Suscribirme",
+                url: subscriptionUrl, // El enlace de suscripción se pasa como URL en el botón
+              },
+              { text: "Volver", callback_data: "back_to_main" },
+            ],
           ],
         },
       });
       return;
     }
 
-    console.log("Database status subscription", subscription.status);
+    console.log(
+      "Database status subscription",
+      subscription.status,
+      "for user",
+      subscription.stripeCustomerId
+    );
 
     // Obtener detalles de la suscripción desde Stripe
     const stripeSubscription = await stripe.subscriptions.list({
       customer: subscription.stripeCustomerId,
       limit: 1,
     });
-
+    console.log(stripeSubscription);
     if (!stripeSubscription || stripeSubscription.data.length === 0) {
       console.log("No se encontraron datos de suscripción en Stripe.");
-      await ctx.editMessageText(
-        "No se encontraron datos de suscripción en Stripe.",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "Volver", callback_data: "back_to_main" }],
+      await ctx.editMessageText("No tienes una suscripción activa. Presiona el botón para suscribirte.", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Suscribirme",
+                url: subscriptionUrl, // El enlace de suscripción se pasa como URL en el botón
+              },
+              { text: "Volver", callback_data: "back_to_main" },
             ],
-          },
-        }
-      );
+          ],
+        },
+      });
       return;
     }
 
@@ -387,13 +419,15 @@ exports.handleAddNewTelegrama = async (ctx) => {
       });
     }
   } catch (error) {
-    console.error("Error al verificar el número de seguimientos activos:", error);
+    console.error(
+      "Error al verificar el número de seguimientos activos:",
+      error
+    );
     await ctx.reply(
       "Hubo un problema al verificar tus seguimientos activos. Por favor, intenta nuevamente."
     );
   }
 };
-
 
 exports.handleTrackingTelegramas = async (ctx) => {
   const userId = ctx.from.id;
@@ -401,9 +435,7 @@ exports.handleTrackingTelegramas = async (ctx) => {
 
   const elementosMsg =
     trackingTelegramas.length > 0
-      ? trackingTelegramas
-          .map((item) => `CD${item.trackingCode}`)
-          .join("\n")
+      ? trackingTelegramas.map((item) => `CD${item.trackingCode}`).join("\n")
       : "Sin elementos";
 
   await ctx.editMessageText(
@@ -436,7 +468,6 @@ exports.handleTrackingTelegramas = async (ctx) => {
   );
 };
 
-
 exports.handleDeleteTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
   const trackingTelegramas = await getTrackingTelegramas(userId); // Obtener los datos
@@ -464,18 +495,15 @@ exports.handleDeleteTrackingMenu = async (ctx) => {
   // Agregar el botón de "Volver"
   buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
 
-  await ctx.editMessageText(
-    "Elige el seguimiento que deseas eliminar:",
-    {
-      reply_markup: {
-        inline_keyboard: buttons,
-      },
-    }
-  );
+  await ctx.editMessageText("Elige el seguimiento que deseas eliminar:", {
+    reply_markup: {
+      inline_keyboard: buttons,
+    },
+  });
 };
 
 exports.handleDeleteTracking = async (ctx) => {
-  const trackingId = ctx.update.callback_query.data.split('_').pop(); // Obtener el ID del seguimiento desde el callback_data
+  const trackingId = ctx.update.callback_query.data.split("_").pop(); // Obtener el ID del seguimiento desde el callback_data
 
   try {
     // Encontrar y actualizar el seguimiento, marcando isCompleted como true
@@ -515,13 +543,11 @@ exports.handleDeleteTracking = async (ctx) => {
           inline_keyboard: [
             [{ text: "Volver", callback_data: "tracking_telegramas" }],
           ],
-        }
+        },
       }
     );
   }
 };
-
-
 
 exports.handleAddCartaDocumento = async (ctx) => {
   try {
@@ -707,7 +733,7 @@ exports.handleNewTracking = async (ctx) => {
 exports.handleDeleteTracking = async (ctx) => {
   try {
     // Extraer el trackingId del callback_data
-    const trackingId = ctx.update.callback_query.data.split('_').pop(); // Extraer el ID del seguimiento desde el callback_data
+    const trackingId = ctx.update.callback_query.data.split("_").pop(); // Extraer el ID del seguimiento desde el callback_data
 
     // Buscar y eliminar el seguimiento
     await Tracking.findByIdAndDelete(trackingId);
@@ -734,13 +760,15 @@ exports.handleDeleteTracking = async (ctx) => {
   }
 };
 
-
 exports.handleViewAllTelegramas = async (ctx) => {
   const userId = ctx.from.id;
 
   try {
     // Buscar todos los telegramas/cartas del usuario que no estén completados
-    const trackingTelegramas = await Tracking.find({ userId: userId, isCompleted: false });
+    const trackingTelegramas = await Tracking.find({
+      userId: userId,
+      isCompleted: false,
+    });
 
     if (trackingTelegramas.length === 0) {
       await ctx.editMessageText("No tienes telegramas/cartas activas.", {
@@ -765,40 +793,48 @@ exports.handleViewAllTelegramas = async (ctx) => {
     buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
 
     // Editar el mensaje para mostrar todos los telegramas/cartas
-    await ctx.editMessageText("Selecciona un telegrama/carta para ver sus movimientos:", {
-      reply_markup: {
-        inline_keyboard: buttons,
-      },
-    });
+    await ctx.editMessageText(
+      "Selecciona un telegrama/carta para ver sus movimientos:",
+      {
+        reply_markup: {
+          inline_keyboard: buttons,
+        },
+      }
+    );
   } catch (error) {
     console.error("Error al obtener los telegramas/cartas:", error);
-    await ctx.editMessageText("Hubo un problema al obtener los telegramas/cartas.", {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Volver", callback_data: "tracking_telegramas" }],
-        ],
-      },
-    });
+    await ctx.editMessageText(
+      "Hubo un problema al obtener los telegramas/cartas.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: "tracking_telegramas" }],
+          ],
+        },
+      }
+    );
   }
 };
-
 
 exports.handleViewTrackingMovements = async (ctx) => {
   try {
     // Extraer el trackingId del callback_data
-    const trackingId = ctx.update.callback_query.data.split('_').pop();
+    const trackingId = ctx.update.callback_query.data.split("_").pop();
 
     // Buscar el seguimiento por ID
     const tracking = await Tracking.findById(trackingId);
 
     if (!tracking) {
-      await ctx.editMessageText("No se encontró el seguimiento. Por favor, intenta nuevamente.", {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Volver", callback_data: "view_all_telegramas" }],
-          ],
-        },
-      });
+      await ctx.editMessageText(
+        "No se encontró el seguimiento. Por favor, intenta nuevamente.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Volver", callback_data: "view_all_telegramas" }],
+            ],
+          },
+        }
+      );
       return;
     }
 
@@ -810,7 +846,12 @@ exports.handleViewTrackingMovements = async (ctx) => {
       message = "No hay movimientos.";
     } else {
       message = movements
-        .map((movement) => `Fecha: ${moment(movement.date).format("DD/MM/YYYY")}\nPlanta: ${movement.planta}\nHistoria: ${movement.historia}\nEstado: ${movement.estado}`)
+        .map(
+          (movement) =>
+            `Fecha: ${moment(movement.date).format("DD/MM/YYYY")}\nPlanta: ${
+              movement.planta
+            }\nHistoria: ${movement.historia}\nEstado: ${movement.estado}`
+        )
         .join("\n\n");
     }
 
@@ -824,16 +865,18 @@ exports.handleViewTrackingMovements = async (ctx) => {
     });
   } catch (error) {
     console.error("Error al obtener los movimientos del seguimiento:", error);
-    await ctx.editMessageText("Hubo un problema al obtener los movimientos del seguimiento.", {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Volver", callback_data: "view_all_telegramas" }],
-        ],
-      },
-    });
+    await ctx.editMessageText(
+      "Hubo un problema al obtener los movimientos del seguimiento.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: "view_all_telegramas" }],
+          ],
+        },
+      }
+    );
   }
 };
-
 
 // Ejemplo de cómo completar un seguimiento
 exports.handleCompleteTracking = async (ctx) => {
@@ -858,4 +901,3 @@ async function getTrackingCausas(userId) {
   // Implementar lógica para obtener las causas del usuario desde la base de datos
   return []; // Retornar un array de objetos de causas
 }
-

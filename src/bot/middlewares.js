@@ -64,7 +64,7 @@ const trackingMiddleware = async (ctx, next) => {
             firstName
           )}&chatid=${chatId}`;
           await ctx.editMessageText(
-            "No tienes una suscripción activa. presiona el botón para suscribirte:",
+            "No tienes una suscripción activa. Presiona el botón para suscribirte:",
             {
               reply_markup: {
                 inline_keyboard: [
@@ -91,7 +91,7 @@ const trackingMiddleware = async (ctx, next) => {
           )}&chatid=${chatId}`;
 
           await ctx.reply(
-            "No tienes una suscripción activa. presiona el botón para suscribirte:",
+            "No tienes una suscripción activa. Presiona el botón para suscribirte:",
             {
               reply_markup: {
                 inline_keyboard: [
