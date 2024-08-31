@@ -1,13 +1,42 @@
 const { Telegraf, session } = require("telegraf");
 const { botToken } = require("../../config/env");
 const bot = new Telegraf(botToken);
-
-// Importar middlewares
 require("./middlewares")(bot);
 const trackingMiddleware = require("./middlewares");
 const Tracking = require("../models/trackingModel");
+const { scrapeCA } = require("../services/scraper");
+const logger = require("../config/logger");
 const suscriptionsTopic = process.env.TOPIC_SUSCRIPTIONS;
 
+async function editMessageWithButtons(ctx, text, buttons) {
+  try {
+    await ctx.telegram.editMessageText(
+      ctx.chat.id,
+      ctx.session.messageIdToEdit,
+      undefined,
+      text,
+      {
+        reply_markup: {
+          inline_keyboard: buttons,
+        },
+      }
+    );
+  } catch (error) {
+    if (error.response && error.response.error_code === 400 && error.response.description.includes("message is not modified")) {
+      logger.warn("El mensaje no se modificó porque el contenido es el mismo.");
+    } else {
+      logger.error("Error al editar el mensaje:", error);
+      const errorMessage = await ctx.reply(
+        "Hubo un problema al actualizar el mensaje. Por favor, intenta nuevamente."
+      );
+      setTimeout(() => {
+        ctx.deleteMessage(errorMessage.message_id).catch((err) => {
+          console.error("Error al eliminar el mensaje de error:", err);
+        });
+      }, 5000);
+    }
+  }
+}
 bot.use(session());
 
 // Comando /start
@@ -70,92 +99,149 @@ bot.on("text", async (ctx) => {
 
     // Validar que el número tenga 9 dígitos
     if (/^\d{9}$/.test(cdNumber)) {
-      // Editar el mensaje original para mostrar la confirmación y las opciones adicionales
-      const newTracking = new Tracking({
-        userId: ctx.from.id, // userId del usuario de Telegram
-        trackingCode: cdNumber, // Número de 9 dígitos ingresado
-        trackingType: "carta_documento"
-      });
-
-      await newTracking.save(); // Guardar en la base de datos
-
-      // Confirmación en la consola
-      console.log(
-        `Tracking guardado para el usuario ${ctx.from.id} con código ${cdNumber}.`
-      );
-      if (ctx.session.messageIdToEdit) {
-        try {
-          await ctx.telegram.editMessageText(
-            ctx.chat.id,
-            ctx.session.messageIdToEdit,
-            undefined, // inline_message_id (si aplica)
-            `Número de CD (${cdNumber}) recibido correctamente.`,
-            {
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: "Agregar Otro",
-                      callback_data: "add_new_telegrama",
-                    },
-                  ],
-                  [
-                    {
-                      text: "Ver Seguimientos",
-                      callback_data: "view_all_telegramas",
-                    },
-                  ],
-                  [
-                    {
-                      text: "Volver al Menú Principal",
-                      callback_data: "back_to_main",
-                    },
-                  ],
-                ],
-              },
-            }
-          );
-        } catch (error) {
-          console.error("Error al editar el mensaje:", error);
-          ctx.reply(
-            "Hubo un problema al actualizar el mensaje. Por favor, intenta nuevamente."
-          );
-        }
-      }
-
-      // Eliminar el mensaje que contiene el número de 9 dígitos ingresado por el usuario
-      setTimeout(() => {
-        ctx.deleteMessage(ctx.message.message_id).catch((err) => {
-          console.error("Error al eliminar el mensaje del usuario:", err);
+      try {
+        // Verificar si el tracking ya existe en la base de datos
+        const existingTracking = await Tracking.findOne({
+          userId: ctx.from.id,
+          trackingCode: cdNumber,
+          trackingType: "carta_documento",
         });
-      }, 3000); // 3000 milisegundos = 3 segundos (puedes ajustar este tiempo)
+
+        if (existingTracking) {
+          // Si el tracking ya existe, no hacer scraping y enviar un mensaje
+          await editMessageWithButtons(
+            ctx,
+            `El número de CD (${cdNumber}) ya se encuentra agregado.`,
+            [
+              [{ text: "Agregar Otro", callback_data: "add_new_telegrama" }],
+              [
+                {
+                  text: "Ver Seguimientos",
+                  callback_data: "view_all_telegramas",
+                },
+              ],
+              [
+                {
+                  text: "Volver al Menú Principal",
+                  callback_data: "back_to_main",
+                },
+              ],
+            ]
+          );
+        } else {
+          // Si el tracking no existe, proceder con el scraping
+          await editMessageWithButtons(
+            ctx,
+            "Verificando la existencia del tracking, esto puede tardar unos minutos...",
+            [
+              [
+                {
+                  text: "Volver al Menú Principal",
+                  callback_data: "back_to_main",
+                },
+              ],
+            ]
+          );
+
+          const scrapingResult = await scrapeCA(
+            cdNumber,
+            ctx.from.id,
+            "",
+            "carta_documento"
+          );
+
+          if (scrapingResult.success) {
+            logger.info(
+              `Tracking guardado por scraping para el usuario ${ctx.from.id} con código ${cdNumber}.`
+            );
+
+            await editMessageWithButtons(
+              ctx,
+              `Número de CD (${cdNumber}) recibido correctamente.`,
+              [
+                [{ text: "Agregar Otro", callback_data: "add_new_telegrama" }],
+                [
+                  {
+                    text: "Ver Seguimientos",
+                    callback_data: "view_all_telegramas",
+                  },
+                ],
+                [
+                  {
+                    text: "Volver al Menú Principal",
+                    callback_data: "back_to_main",
+                  },
+                ],
+              ]
+            );
+          } else {
+            logger.info(`No se encontraron resultados para el número de CD (${cdNumber}).`);
+
+            await editMessageWithButtons(
+              ctx,
+              `No se encontraron resultados para el número de CD (${cdNumber}).`,
+              [
+                [{ text: "Agregar Otro", callback_data: "add_new_telegrama" }],
+                [
+                  {
+                    text: "Ver Seguimientos",
+                    callback_data: "view_all_telegramas",
+                  },
+                ],
+                [
+                  {
+                    text: "Volver al Menú Principal",
+                    callback_data: "back_to_main",
+                  },
+                ],
+              ]
+            );
+          }
+        }
+
+        // Eliminar el mensaje que contiene el número de 9 dígitos ingresado por el usuario
+        setTimeout(() => {
+          ctx.deleteMessage(ctx.message.message_id).catch((err) => {
+            logger.error("Error al eliminar el mensaje del usuario:", err);
+          });
+        }, 3000); // 3000 milisegundos = 3 segundos (puedes ajustar este tiempo)
+      } catch (err) {
+        logger.info("Error web scraping: ", err);
+        await editMessageWithButtons(
+          ctx,
+          "No se pudo verificar el tracking. Asegúrate de que el código es correcto e inténtalo de nuevo.",
+          [
+            [{ text: "Agregar Otro", callback_data: "add_new_telegrama" }],
+            [
+              {
+                text: "Ver Seguimientos",
+                callback_data: "view_all_telegramas",
+              },
+            ],
+            [
+              {
+                text: "Volver al Menú Principal",
+                callback_data: "back_to_main",
+              },
+            ],
+          ]
+        );
+      }
 
       // Resetea el estado
       ctx.session.waitingForCDNumber = false;
     } else {
       // Si el número no es válido, solicita nuevamente, editando el mensaje original
-      if (ctx.session.messageIdToEdit) {
-        try {
-          await ctx.telegram.editMessageText(
-            ctx.chat.id,
-            ctx.session.messageIdToEdit,
-            undefined, // inline_message_id (si aplica)
-            "El número ingresado no es válido. Asegúrate de que tenga 9 dígitos. Por favor, inténtalo de nuevo:",
-            {
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: "Volver", callback_data: "tracking_telegramas" }],
-                ],
-              },
-            }
-          );
-        } catch (error) {
-          console.error("Error al editar el mensaje:", error);
-          ctx.reply(
-            "Hubo un problema al actualizar el mensaje. Por favor, intenta nuevamente."
-          );
-        }
-      }
+      await editMessageWithButtons(
+        ctx,
+        "El número ingresado no es válido. Asegúrate de que tenga 9 dígitos. Por favor, inténtalo de nuevo:",
+        [[{ text: "Volver", callback_data: "tracking_telegramas" }]]
+      );
+      setTimeout(() => {
+        ctx.deleteMessage(ctx.message.message_id).catch((err) => {
+          logger.error("Error al eliminar el mensaje del usuario:", err);
+        });
+      }, 3000);
     }
   }
 });
@@ -205,22 +291,28 @@ bot.action(
 );
 
 bot.action("delete_tracking_menu", async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleDeleteTrackingMenu(ctx);
+  await require("../controllers/subscriptionBotController").handleDeleteTrackingMenu(
+    ctx
+  );
 });
 
 bot.action(/^delete_tracking_\w+$/, async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleDeleteTracking(ctx);
+  await require("../controllers/subscriptionBotController").handleDeleteTracking(
+    ctx
+  );
 });
 
 bot.action("view_all_telegramas", async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleViewAllTelegramas(ctx);
+  await require("../controllers/subscriptionBotController").handleViewAllTelegramas(
+    ctx
+  );
 });
 
 bot.action(/^view_tracking_movements_\w+$/, async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleViewTrackingMovements(ctx);
+  await require("../controllers/subscriptionBotController").handleViewTrackingMovements(
+    ctx
+  );
 });
-
-
 
 bot.action(
   "back_to_main",
@@ -247,8 +339,23 @@ bot.action("add_carta_documento", async (ctx) => {
 // También asegúrate de manejar los callback para 'add_carta_documento' y 'add_telegrama'
 // para que realicen la acción deseada, como mostrar un formulario o iniciar un seguimiento.
 
+// Acción para mostrar el menú de archivado
+bot.action("archive_tracking_menu", async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleArchiveTrackingMenu(ctx);
+});
+
+// Acción para archivar un seguimiento específico
+bot.action(/^archive_tracking_\w+$/, async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleArchiveTracking(ctx);
+});
+
+
 bot.catch((err, ctx) => {
-  console.error(`Error en el bot para ${ctx.updateType}:`, err);
+  logger.error(`Error en el bot para ${ctx.updateType}:`, err.message);
+  logger.error(`Stack Trace: ${err.stack}`);
+  if (ctx) {
+    logger.error(`Contexto del error: ${JSON.stringify(ctx)}`);
+  }
 });
 
 // Exportar el bot para ser utilizado en otras partes del proyecto

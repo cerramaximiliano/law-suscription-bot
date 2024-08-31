@@ -6,7 +6,10 @@ const Stripe = require("stripe");
 const Tracking = require("../models/trackingModel");
 const stripe = Stripe(stripeSecretKey);
 const { getTrackingTelegramas } = require("../controllers/trackingController");
+const { scrapeCA } = require("../services/scraper");
 const URL_BASE = process.env.BASE_URL;
+
+
 
 exports.handleBotSubscription = async (ctx) => {
   const chatId = ctx.chat.id;
@@ -15,7 +18,7 @@ exports.handleBotSubscription = async (ctx) => {
 
   const BASE_URL = process.env.BASE_URL;
 
-  const subscriptionUrl = `${BASE_URL}/suscripcion?userId=${userId}&name=${encodeURIComponent(
+  const subscriptionUrl = `${BASE_URL}/subscription?userId=${userId}&name=${encodeURIComponent(
     firstName
   )}&chatid=${chatId}`;
 
@@ -105,7 +108,7 @@ exports.handleBotAccess = async (ctx) => {
 
       const BASE_URL = process.env.BASE_URL;
 
-      const subscriptionUrl = `${BASE_URL}/suscripcion?userId=${userId}&name=${encodeURIComponent(
+      const subscriptionUrl = `${BASE_URL}/subscription?userId=${userId}&name=${encodeURIComponent(
         firstName
       )}&chatid=${chatId}`;
 
@@ -116,7 +119,7 @@ exports.handleBotAccess = async (ctx) => {
 
         const BASE_URL = process.env.BASE_URL;
         console.log(118)
-        const subscriptionUrl = `${BASE_URL}/suscripcion?userId=${userId}&name=${encodeURIComponent(
+        const subscriptionUrl = `${BASE_URL}/subscription?userId=${userId}&name=${encodeURIComponent(
           firstName
         )}&chatid=${chatId}`;
 
@@ -176,7 +179,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
 
     const BASE_URL = process.env.BASE_URL;
 
-    const subscriptionUrl = `${BASE_URL}/suscripcion?userId=${userId}&name=${encodeURIComponent(
+    const subscriptionUrl = `${BASE_URL}/subscription?userId=${userId}&name=${encodeURIComponent(
       firstName
     )}&chatid=${chatId}`;
     
@@ -470,8 +473,7 @@ exports.handleTrackingTelegramas = async (ctx) => {
 
 exports.handleDeleteTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
-  const trackingTelegramas = await getTrackingTelegramas(userId); // Obtener los datos
-
+  const trackingTelegramas = await getTrackingTelegramas(userId, false); // Obtener los datos
   // Verificar si hay elementos para eliminar
   if (trackingTelegramas.length === 0) {
     await ctx.editMessageText("No tienes seguimientos activos para eliminar.", {
@@ -710,6 +712,13 @@ exports.handleNewTracking = async (ctx) => {
       );
     }
 
+    try{
+      await ctx.reply("Verificando la existencia del tracking, esto puede tardar unos minutos...");
+      const scrapingResult = await scrapeCA(trackingCode, userId, notificationId, trackingType);
+    }catch(err){
+      return ctx.reply("No se pudo verificar el tracking. Asegúrate de que el código es correcto e inténtalo de nuevo.");
+    }
+
     // Crear un nuevo seguimiento
     const newTracking = new Tracking({
       userId: userId,
@@ -720,6 +729,7 @@ exports.handleNewTracking = async (ctx) => {
 
     // Guardar el seguimiento en la base de datos
     await newTracking.save();
+
 
     // Responder al usuario
     ctx.reply("Nuevo seguimiento agregado exitosamente.");
@@ -823,7 +833,7 @@ exports.handleViewTrackingMovements = async (ctx) => {
 
     // Buscar el seguimiento por ID
     const tracking = await Tracking.findById(trackingId);
-
+    console.log(tracking.trackingCode)
     if (!tracking) {
       await ctx.editMessageText(
         "No se encontró el seguimiento. Por favor, intenta nuevamente.",
@@ -841,11 +851,11 @@ exports.handleViewTrackingMovements = async (ctx) => {
     // Obtener los movimientos del seguimiento
     const movements = tracking.movements;
 
-    let message;
+    let message = `*CD ${tracking.trackingCode}*\n\n`;
     if (movements.length === 0) {
-      message = "No hay movimientos.";
+      message += "No hay movimientos.";
     } else {
-      message = movements
+      message += movements
         .map(
           (movement) =>
             `Fecha: ${moment(movement.date).format("DD/MM/YYYY")}\nPlanta: ${
@@ -857,6 +867,7 @@ exports.handleViewTrackingMovements = async (ctx) => {
 
     // Editar el mensaje para mostrar los movimientos
     await ctx.editMessageText(message, {
+      parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
           [{ text: "Volver", callback_data: "view_all_telegramas" }],
@@ -895,6 +906,133 @@ exports.handleCompleteTracking = async (ctx) => {
     ctx.reply("Hubo un problema al completar el seguimiento.");
   }
 };
+
+exports.handleArchiveTrackingMenu = async (ctx) => {
+  const userId = ctx.from.id;
+  const trackingTelegramas = await getTrackingTelegramas(userId, false); // Obtener los datos
+  console.log(trackingTelegramas)
+  // Verificar si hay elementos para archivar
+  if (trackingTelegramas.length === 0) {
+    await ctx.editMessageText("No tienes seguimientos activos para archivar.", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Volver", callback_data: "tracking_telegramas" }],
+        ],
+      },
+    });
+    return;
+  }
+
+  // Crear botones para cada elemento de seguimiento
+  const buttons = trackingTelegramas.map((item) => [
+    {
+      text: `CD${item.trackingCode}`,
+      callback_data: `archive_tracking_${item._id}`, // Usamos el ID del elemento para identificarlo
+    },
+  ]);
+
+  // Agregar el botón de "Volver"
+  buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
+
+  await ctx.editMessageText("Elige el seguimiento que deseas archivar:", {
+    reply_markup: {
+      inline_keyboard: buttons,
+    },
+  });
+};
+
+exports.handleArchiveTracking = async (ctx) => {
+  const trackingId = ctx.update.callback_query.data.split("_").pop(); // Obtener el ID del seguimiento desde el callback_data
+
+  try {
+    // Encontrar y actualizar el seguimiento, marcando isCompleted como true
+    const tracking = await Tracking.findById(trackingId);
+    if (tracking) {
+      tracking.isCompleted = true;
+      await tracking.save();
+
+      await ctx.editMessageText(
+        `El seguimiento CD${tracking.trackingCode} ha sido archivado.`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Volver", callback_data: "tracking_telegramas" }],
+            ],
+          },
+        }
+      );
+    } else {
+      await ctx.editMessageText(
+        "No se encontró el seguimiento. Por favor, intenta nuevamente.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Volver", callback_data: "tracking_telegramas" }],
+            ],
+          },
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Error al archivar el seguimiento:", error);
+    await ctx.editMessageText(
+      "Hubo un problema al intentar archivar el seguimiento. Por favor, intenta nuevamente.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: "tracking_telegramas" }],
+          ],
+        },
+      }
+    );
+  }
+};
+
+exports.handleTrackingTelegramas = async (ctx) => {
+  const userId = ctx.from.id;
+  const trackingTelegramas = await getTrackingTelegramas(userId, false); // Implementar la función para obtener los datos
+
+  const elementosMsg =
+    trackingTelegramas.length > 0
+      ? trackingTelegramas.map((item) => `CD${item.trackingCode}`).join("\n")
+      : "Sin elementos";
+
+  await ctx.editMessageText(
+    `Tus telegramas/cartas seguidas:\n\n${elementosMsg}`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "Agregar Nuevo Telegrama/Carta",
+              callback_data: "add_new_telegrama", // Maneja el evento en handleAddNewTelegrama
+            },
+          ],
+          [
+            {
+              text: "Eliminar Seguimiento",
+              callback_data: "delete_tracking_menu", // Dirige al menú de eliminación
+            },
+          ],
+          [
+            {
+              text: "Archivar Seguimiento",
+              callback_data: "archive_tracking_menu", // Dirige al menú de archivado
+            },
+          ],
+          [
+            {
+              text: "Ver Todos los Telegramas/Cartas",
+              callback_data: "view_all_telegramas",
+            },
+          ],
+          [{ text: "Volver", callback_data: "tracking_options" }],
+        ],
+      },
+    }
+  );
+};
+
 
 // Funciones auxiliares (implementar estas funciones para obtener y manejar los datos)
 async function getTrackingCausas(userId) {
