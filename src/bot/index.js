@@ -6,7 +6,9 @@ const trackingMiddleware = require("./middlewares");
 const Tracking = require("../models/trackingModel");
 const { scrapeCA } = require("../services/scraper");
 const logger = require("../config/logger");
+const Subscription = require("../models/subscriptionModel");
 const suscriptionsTopic = process.env.TOPIC_SUSCRIPTIONS;
+
 
 async function editMessageWithButtons(ctx, text, buttons) {
   try {
@@ -40,7 +42,7 @@ async function editMessageWithButtons(ctx, text, buttons) {
 bot.use(session());
 
 // Comando /start
-bot.start((ctx) => {
+bot.start(  async (ctx) => {
   const BASE_URL = process.env.BASE_URL;
   const chatId = ctx.chat.id;
   const userId = ctx.from.id;
@@ -50,27 +52,34 @@ bot.start((ctx) => {
     firstName
   )}&chatid=${chatId}`;
 
+  const subscription = await Subscription.findOne({userId: userId})
+
   if (ctx.chat.type === "private") {
     // Mensaje cuando el bot es iniciado en una conversación privada
-    ctx.reply(
-      `¡Hola! Este bot está diseñado para suscripciones dentro de un grupo.`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "Unirme al grupo",
-                url: "https://t.me/lawinfochatbot", // Enlace de invitación al grupo
-              },
-              {
-                text: "Suscribirme",
-                url: subscriptionUrl, // Enlace de suscripción
-              },
+    if ( subscription ){
+      require("../controllers/subscriptionBotController").handleBotAccess(ctx);
+    }else{
+      ctx.reply(
+        `¡Hola! Este bot está diseñado para suscripciones dentro de un grupo.`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "Unirme al grupo",
+                  url: "https://t.me/lawinfochatbot", // Enlace de invitación al grupo
+                },
+                {
+                  text: "Suscribirme",
+                  url: subscriptionUrl, // Enlace de suscripción
+                },
+              ],
             ],
-          ],
-        },
-      }
-    );
+          },
+        }
+      );
+    }
+    
   } else if (
     ctx.message &&
     ctx.message.message_thread_id == suscriptionsTopic
@@ -149,7 +158,7 @@ bot.on("text", async (ctx) => {
             "",
             "carta_documento"
           );
-
+          console.log(scrapingResult)
           if (scrapingResult.success) {
             logger.info(
               `Tracking guardado por scraping para el usuario ${ctx.from.id} con código ${cdNumber}.`

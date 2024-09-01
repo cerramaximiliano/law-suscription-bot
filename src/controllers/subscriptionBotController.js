@@ -84,6 +84,7 @@ exports.handleBotAccess = async (ctx) => {
     if (subscription && subscription.status === "active") {
       console.log("Subscription is active");
 
+      // Si es una llamada desde un callback_query
       if (ctx.update.callback_query && ctx.update.callback_query.message) {
         console.log("Editing message to show options");
         await ctx.editMessageText("Selecciona una opción:", {
@@ -97,32 +98,28 @@ exports.handleBotAccess = async (ctx) => {
           },
         });
       } else {
-        console.log("No callback_query or message found");
-        await ctx.reply("No se pudo actualizar el mensaje.");
+        // Si es una llamada desde /start o un mensaje regular
+        console.log("Sending options as a new message");
+        await ctx.reply("Selecciona una opción:", {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Suscripción", callback_data: "subscription_info" }],
+              [{ text: "Servicios", callback_data: "tracking_options" }],
+            ],
+          },
+        });
       }
     } else {
       console.log("No active subscription found");
       const chatId = ctx.chat.id;
-      const userId = ctx.from.id;
       const firstName = ctx.from.first_name;
 
       const BASE_URL = process.env.BASE_URL;
-
       const subscriptionUrl = `${BASE_URL}/subscription?userId=${userId}&name=${encodeURIComponent(
         firstName
       )}&chatid=${chatId}`;
 
       if (ctx.update.callback_query && ctx.update.callback_query.message) {
-        const chatId = ctx.chat.id;
-        const userId = ctx.from.id;
-        const firstName = ctx.from.first_name;
-
-        const BASE_URL = process.env.BASE_URL;
-        console.log(118)
-        const subscriptionUrl = `${BASE_URL}/subscription?userId=${userId}&name=${encodeURIComponent(
-          firstName
-        )}&chatid=${chatId}`;
-
         await ctx.editMessageText(
           "No tienes una suscripción activa. Presiona el botón para suscribirte:",
           {
@@ -142,8 +139,22 @@ exports.handleBotAccess = async (ctx) => {
           }
         );
       } else {
-        console.log("No callback_query or message found");
-        await ctx.reply("No se pudo actualizar el mensaje.");
+        await ctx.reply(
+          "No tienes una suscripción activa. Presiona el botón para suscribirte:",
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "Suscribirme",
+                    url: subscriptionUrl, // El enlace de suscripción se pasa como URL en el botón
+                  },
+                  { text: "Volver", callback_data: "back_to_main" },
+                ],
+              ],
+            },
+          }
+        );
       }
     }
   } catch (error) {
@@ -163,10 +174,11 @@ exports.handleBotAccess = async (ctx) => {
         }
       );
     } else {
-      await ctx.reply("No se pudo actualizar el mensaje.");
+      await ctx.reply("Hubo un problema al verificar tu suscripción. Por favor, intenta nuevamente más tarde.");
     }
   }
 };
+
 
 exports.handleSubscriptionInfo = async (ctx) => {
   const userId = ctx.from.id;

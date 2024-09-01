@@ -13,6 +13,12 @@ const logger = require("../config/logger");
 const timeout = (millis) =>
   new Promise((resolve) => setTimeout(resolve, millis));
 
+const randomDelay = (minSeconds, maxSeconds) => {
+  const minMilliseconds = minSeconds * 1000;
+  const maxMilliseconds = maxSeconds * 1000;
+  return Math.floor(Math.random() * (maxMilliseconds - minMilliseconds + 1)) + minMilliseconds;
+};
+
 const siteDetails = {
   sitekey: process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
   pageurl: process.env.RECAPTCHA_SCRAPE_PAGE,
@@ -103,12 +109,18 @@ const scrapeCA = async (
       waitUntil: "domcontentloaded",
     });
 
+    // Simular movimientos de mouse
+    await simulateHumanLikeMouseMovements(page);
+
     // Resolver CAPTCHA
     const captchaResponse = await resolveCaptcha(page);
     if (!captchaResponse) throw new Error("Error al resolver CAPTCHA.");
 
     // Completar formulario
     await completeForm(page, cdNumber, captchaResponse);
+
+    // Simular movimientos de mouse antes de enviar el formulario
+    await simulateHumanLikeMouseMovements(page);
 
     // Enviar formulario
     await submitForm(page);
@@ -155,6 +167,18 @@ const scrapeCA = async (
   return result;
 };
 
+// Simular movimientos de mouse aleatorios
+const simulateHumanLikeMouseMovements = async (page) => {
+  const width = 800;
+  const height = 600;
+  
+  for (let i = 0; i < 10; i++) {
+    const randomX = Math.floor(Math.random() * width);
+    const randomY = Math.floor(Math.random() * height);
+    await page.mouse.move(randomX, randomY);
+    await new Promise((resolve) => setTimeout(resolve, 1254)); // Espera de 1 segundo
+  }
+};
 
 const resolveCaptcha = async (page) => {
   logger.info("Iniciando solicitud de CAPTCHA");
@@ -205,13 +229,28 @@ const submitForm = async (page) => {
 
     logger.info("Haciendo clic en el checkbox de reCAPTCHA");
     await recaptchaFrame.click(".recaptcha-checkbox-border");
+
+    // Esperar un poco después de hacer clic en el checkbox
+    await new Promise((resolve) => {
+      const delay = randomDelay(3,+ 5); // Aquí pasas los segundos mínimos y máximos como parámetros
+      setTimeout(resolve, delay);
+    });
   } else {
     throw new Error("No se pudo encontrar el iframe de reCAPTCHA.");
   }
 
+  // Esperar un poco antes de hacer clic en el botón de submit
+  await new Promise((resolve) => {
+    const delay = randomDelay(3, 4); // Aquí pasas los segundos mínimos y máximos como parámetros
+    setTimeout(resolve, delay);
+  });
   // Hacer clic en el botón de submit
   logger.info("Haciendo clic en el botón de enviar");
   await page.click("button#btsubmit");
+  await new Promise((resolve) => {
+    const delay = randomDelay(4, 5); // Aquí pasas los segundos mínimos y máximos como parámetros
+    setTimeout(resolve, delay);
+  });
 };
 
 const captureScreenshot = async (page, cdNumber) => {
