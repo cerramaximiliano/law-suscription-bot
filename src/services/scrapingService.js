@@ -8,7 +8,7 @@ const {
 } = require("../controllers/trackingController");
 const { resolveCaptcha } = require("./captchaService");
 const { simulateHumanLikeMouseMovements } = require("./mouseMovementService");
-const { randomDelay } = require("./utils");
+const { randomDelay } = require("../utils/utils");
 
 const scrapeCA = async (
   cdNumber = "164278815",
