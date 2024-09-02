@@ -93,6 +93,7 @@ const scrapeCA = async (
 
     logger.info(result.message);
   } catch (err) {
+    console.log(err)
     logger.error(`Error en tarea de scraping tracking: ${err}`);
     result.message = `Error en tarea de scraping tracking: ${err.message}`;
   } finally {

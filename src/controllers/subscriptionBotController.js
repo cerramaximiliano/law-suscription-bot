@@ -845,7 +845,6 @@ exports.handleViewTrackingMovements = async (ctx) => {
 
     // Buscar el seguimiento por ID
     const tracking = await Tracking.findById(trackingId);
-    console.log(tracking.trackingCode)
     if (!tracking) {
       await ctx.editMessageText(
         "No se encontró el seguimiento. Por favor, intenta nuevamente.",
@@ -877,11 +876,15 @@ exports.handleViewTrackingMovements = async (ctx) => {
         .join("\n\n");
     }
 
+    // Agregar el botón de descarga del screenshot
+    const screenshotUrl = `${URL_BASE}/tracking/download/${tracking.screenshots[0]}`;
+
     // Editar el mensaje para mostrar los movimientos
     await ctx.editMessageText(message, {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
+          [{ text: "Descargar Captura de Pantalla", url: screenshotUrl }],
           [{ text: "Volver", callback_data: "view_all_telegramas" }],
         ],
       },
@@ -900,6 +903,7 @@ exports.handleViewTrackingMovements = async (ctx) => {
     );
   }
 };
+
 
 // Ejemplo de cómo completar un seguimiento
 exports.handleCompleteTracking = async (ctx) => {

@@ -6,7 +6,7 @@ const bot = require("./src/bot"); // Importar la lógica del bot
 const subscriptionRoutes = require("./src/routes/subscription"); // Importar las rutas de suscripción
 const successRoutes = require("./src/routes/success"); // Importar la ruta de éxito
 const webhookRoutes = require("./src/routes/webhook");
-const { scrapeCA } = require("./src/services/scraper");
+const tracking = require("./src/routes/tracking");
 
 const app = express();
 
@@ -25,10 +25,7 @@ app.get("/", (req, res) => {
 
 // Conectar a MongoDB
 mongoose
-  .connect(mongoUri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(mongoUri)
   .then(() => {
     console.log("Conectado a MongoDB");
   })
@@ -43,6 +40,7 @@ bot.launch();
 app.use("/subscription", subscriptionRoutes);
 app.use("/success", successRoutes);
 app.use("/webhook", webhookRoutes);
+app.use("/tracking", tracking);
 
 // Middleware para manejar rutas no encontradas y servir la página 404
 app.use((req, res, next) => {
