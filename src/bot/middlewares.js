@@ -148,5 +148,3 @@ const trackingMiddleware = async (ctx, next) => {
 };
 
 module.exports = trackingMiddleware;
-
-module.exports = trackingMiddleware;

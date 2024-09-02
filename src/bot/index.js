@@ -40,6 +40,12 @@ async function editMessageWithButtons(ctx, text, buttons) {
   }
 }
 bot.use(session());
+bot.use((ctx, next) => {
+  if (!ctx.session) {
+    ctx.session = {}; // Inicializa la sesión si no está definida
+  }
+  return next();
+});
 
 // Comando /start
 bot.start(  async (ctx) => {
@@ -358,6 +364,23 @@ bot.action(/^archive_tracking_\w+$/, async (ctx) => {
   await require("../controllers/subscriptionBotController").handleArchiveTracking(ctx);
 });
 
+
+bot.action(/^send_screenshot_\w+$/, async (ctx) => {
+  const trackingId = ctx.match.input.split("_").pop();
+
+  try {
+    const tracking = await Tracking.findById(trackingId);
+    if (tracking && tracking.screenshots.length > 0) {
+      const filePath = tracking.screenshots[0].path;
+      await ctx.replyWithPhoto({ source: filePath });
+    } else {
+      await ctx.reply("No se encontró la captura de pantalla.");
+    }
+  } catch (error) {
+    console.error("Error al enviar la imagen:", error);
+    await ctx.reply("Hubo un problema al enviar la imagen. Por favor, intenta nuevamente.");
+  }
+});
 
 bot.catch((err, ctx) => {
   logger.error(`Error en el bot para ${ctx.updateType}:`, err.message);

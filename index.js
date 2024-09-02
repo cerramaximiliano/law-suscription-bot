@@ -7,6 +7,7 @@ const subscriptionRoutes = require("./src/routes/subscription"); // Importar las
 const successRoutes = require("./src/routes/success"); // Importar la ruta de éxito
 const webhookRoutes = require("./src/routes/webhook");
 const tracking = require("./src/routes/tracking");
+const logger = require("./src/config/logger");
 
 const app = express();
 
@@ -27,10 +28,10 @@ app.get("/", (req, res) => {
 mongoose
   .connect(mongoUri)
   .then(() => {
-    console.log("Conectado a MongoDB");
+    logger.info("Conectado a MongoDB");
   })
   .catch((err) => {
-    console.error("Error al conectar a MongoDB:", err);
+    logger.info("Error al conectar a MongoDB:", err);
   });
 
 // Iniciar el bot de Telegram

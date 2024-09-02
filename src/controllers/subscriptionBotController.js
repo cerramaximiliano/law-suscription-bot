@@ -7,9 +7,8 @@ const Tracking = require("../models/trackingModel");
 const stripe = Stripe(stripeSecretKey);
 const { getTrackingTelegramas } = require("../controllers/trackingController");
 const { scrapeCA } = require("../services/scraper");
+const logger = require("../config/logger");
 const URL_BASE = process.env.BASE_URL;
-
-
 
 exports.handleBotSubscription = async (ctx) => {
   const chatId = ctx.chat.id;
@@ -174,11 +173,12 @@ exports.handleBotAccess = async (ctx) => {
         }
       );
     } else {
-      await ctx.reply("Hubo un problema al verificar tu suscripción. Por favor, intenta nuevamente más tarde.");
+      await ctx.reply(
+        "Hubo un problema al verificar tu suscripción. Por favor, intenta nuevamente más tarde."
+      );
     }
   }
 };
-
 
 exports.handleSubscriptionInfo = async (ctx) => {
   const userId = ctx.from.id;
@@ -194,22 +194,25 @@ exports.handleSubscriptionInfo = async (ctx) => {
     const subscriptionUrl = `${BASE_URL}/subscription?userId=${userId}&name=${encodeURIComponent(
       firstName
     )}&chatid=${chatId}`;
-    
+
     if (!subscription) {
       console.log("No se encontró la suscripción en la base de datos.");
-      await ctx.editMessageText("No tienes una suscripción activa. Presiona el botón para suscribirte.", {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "Suscribirme",
-                url: subscriptionUrl, // El enlace de suscripción se pasa como URL en el botón
-              },
-              { text: "Volver", callback_data: "back_to_main" },
+      await ctx.editMessageText(
+        "No tienes una suscripción activa. Presiona el botón para suscribirte.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "Suscribirme",
+                  url: subscriptionUrl, // El enlace de suscripción se pasa como URL en el botón
+                },
+                { text: "Volver", callback_data: "back_to_main" },
+              ],
             ],
-          ],
-        },
-      });
+          },
+        }
+      );
       return;
     }
 
@@ -228,19 +231,22 @@ exports.handleSubscriptionInfo = async (ctx) => {
     console.log(stripeSubscription);
     if (!stripeSubscription || stripeSubscription.data.length === 0) {
       console.log("No se encontraron datos de suscripción en Stripe.");
-      await ctx.editMessageText("No tienes una suscripción activa. Presiona el botón para suscribirte.", {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "Suscribirme",
-                url: subscriptionUrl, // El enlace de suscripción se pasa como URL en el botón
-              },
-              { text: "Volver", callback_data: "back_to_main" },
+      await ctx.editMessageText(
+        "No tienes una suscripción activa. Presiona el botón para suscribirte.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "Suscribirme",
+                  url: subscriptionUrl, // El enlace de suscripción se pasa como URL en el botón
+                },
+                { text: "Volver", callback_data: "back_to_main" },
+              ],
             ],
-          ],
-        },
-      });
+          },
+        }
+      );
       return;
     }
 
@@ -724,11 +730,20 @@ exports.handleNewTracking = async (ctx) => {
       );
     }
 
-    try{
-      await ctx.reply("Verificando la existencia del tracking, esto puede tardar unos minutos...");
-      const scrapingResult = await scrapeCA(trackingCode, userId, notificationId, trackingType);
-    }catch(err){
-      return ctx.reply("No se pudo verificar el tracking. Asegúrate de que el código es correcto e inténtalo de nuevo.");
+    try {
+      await ctx.reply(
+        "Verificando la existencia del tracking, esto puede tardar unos minutos..."
+      );
+      const scrapingResult = await scrapeCA(
+        trackingCode,
+        userId,
+        notificationId,
+        trackingType
+      );
+    } catch (err) {
+      return ctx.reply(
+        "No se pudo verificar el tracking. Asegúrate de que el código es correcto e inténtalo de nuevo."
+      );
     }
 
     // Crear un nuevo seguimiento
@@ -741,7 +756,6 @@ exports.handleNewTracking = async (ctx) => {
 
     // Guardar el seguimiento en la base de datos
     await newTracking.save();
-
 
     // Responder al usuario
     ctx.reply("Nuevo seguimiento agregado exitosamente.");
@@ -840,11 +854,9 @@ exports.handleViewAllTelegramas = async (ctx) => {
 
 exports.handleViewTrackingMovements = async (ctx) => {
   try {
-    // Extraer el trackingId del callback_data
     const trackingId = ctx.update.callback_query.data.split("_").pop();
-
-    // Buscar el seguimiento por ID
     const tracking = await Tracking.findById(trackingId);
+
     if (!tracking) {
       await ctx.editMessageText(
         "No se encontró el seguimiento. Por favor, intenta nuevamente.",
@@ -859,9 +871,7 @@ exports.handleViewTrackingMovements = async (ctx) => {
       return;
     }
 
-    // Obtener los movimientos del seguimiento
     const movements = tracking.movements;
-
     let message = `*CD ${tracking.trackingCode}*\n\n`;
     if (movements.length === 0) {
       message += "No hay movimientos.";
@@ -876,15 +886,12 @@ exports.handleViewTrackingMovements = async (ctx) => {
         .join("\n\n");
     }
 
-    // Agregar el botón de descarga del screenshot
-    const screenshotUrl = `${URL_BASE}/tracking/download/${tracking.screenshots[0]}`;
-
-    // Editar el mensaje para mostrar los movimientos
+    // Editar el mensaje para mostrar los movimientos y agregar el botón para enviar la imagen
     await ctx.editMessageText(message, {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "Descargar Captura de Pantalla", url: screenshotUrl }],
+          [{ text: "Enviar Captura de Pantalla", callback_data: `send_screenshot_${trackingId}` }],
           [{ text: "Volver", callback_data: "view_all_telegramas" }],
         ],
       },
@@ -903,6 +910,7 @@ exports.handleViewTrackingMovements = async (ctx) => {
     );
   }
 };
+
 
 
 // Ejemplo de cómo completar un seguimiento
@@ -926,7 +934,7 @@ exports.handleCompleteTracking = async (ctx) => {
 exports.handleArchiveTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
   const trackingTelegramas = await getTrackingTelegramas(userId, false); // Obtener los datos
-  console.log(trackingTelegramas)
+  console.log(trackingTelegramas);
   // Verificar si hay elementos para archivar
   if (trackingTelegramas.length === 0) {
     await ctx.editMessageText("No tienes seguimientos activos para archivar.", {
@@ -1048,7 +1056,6 @@ exports.handleTrackingTelegramas = async (ctx) => {
     }
   );
 };
-
 
 // Funciones auxiliares (implementar estas funciones para obtener y manejar los datos)
 async function getTrackingCausas(userId) {

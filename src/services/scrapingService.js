@@ -165,7 +165,7 @@ const submitForm = async (page) => {
   logger.info("Haciendo clic en el botón de enviar");
   await page.click("button#btsubmit");
   await new Promise((resolve) => {
-    const delay = randomDelay(4, 5);
+    const delay = randomDelay(5, 7);
     setTimeout(resolve, delay);
   });
 };
@@ -178,9 +178,9 @@ const captureScreenshot = async (page, cdNumber) => {
   });
 
   // Crear la carpeta de capturas de pantalla si no existe
-  const screenshotDir = path.join(process.cwd(), "screenshots");
+  const screenshotDir = path.join(__dirname, "screenshots");
   if (!fs.existsSync(screenshotDir)) {
-    fs.mkdirSync(screenshotDir, { recursive: true });
+    fs.mkdirSync(screenshotDir);
   }
 
   // Tomar una captura de pantalla del área visible completa
@@ -192,7 +192,6 @@ const captureScreenshot = async (page, cdNumber) => {
   );
   return screenshotPath;
 };
-
 
 const extractTableData = async (page) => {
   // Esperar hasta que el selector #resultado esté visible
