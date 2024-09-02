@@ -178,9 +178,9 @@ const captureScreenshot = async (page, cdNumber) => {
   });
 
   // Crear la carpeta de capturas de pantalla si no existe
-  const screenshotDir = path.join(__dirname, "screenshots");
+  const screenshotDir = path.join(process.cwd(), "screenshots");
   if (!fs.existsSync(screenshotDir)) {
-    fs.mkdirSync(screenshotDir);
+    fs.mkdirSync(screenshotDir, { recursive: true });
   }
 
   // Tomar una captura de pantalla del área visible completa
@@ -192,6 +192,7 @@ const captureScreenshot = async (page, cdNumber) => {
   );
   return screenshotPath;
 };
+
 
 const extractTableData = async (page) => {
   // Esperar hasta que el selector #resultado esté visible
