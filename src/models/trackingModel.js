@@ -1,64 +1,66 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const trackingSchema = new Schema({
   userId: {
     type: String,
-    ref: 'User', // Referencia al modelo de usuario
-    required: true
+    ref: "User", // Referencia al modelo de usuario
+    required: true,
   },
   notificationId: {
     type: String,
   },
   trackingCode: {
     type: String,
-    required: true
+    required: true,
   },
   trackingType: {
     type: String,
-    enum: ['telegrama', 'carta_documento', 'otro'], // Diferentes tipos de seguimiento
-    required: true
+    enum: ["telegrama", "carta_documento", "otro"], // Diferentes tipos de seguimiento
+    required: true,
   },
+  lastScraped: { type: Date },
+  notified: { type: Boolean, default: false },
   movements: [
     {
       date: {
         type: Date,
-        required: true
+        required: true,
       },
       planta: {
         type: String,
-        required: true
+        required: true,
       },
       historia: {
         type: String,
-        required: true
+        required: true,
       },
       estado: {
         type: String,
-        default: ""
-      }
-    }
+        default: "",
+      },
+    },
   ],
   lastUpdated: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   isCompleted: {
     type: Boolean,
-    default: false
+    default: false,
   },
   screenshots: [
     {
       path: {
         type: String,
-        required: true
+        required: true,
       },
       capturedAt: {
         type: Date,
-        default: Date.now
-      }
-    }
-  ]
+        default: Date.now,
+      },
+    },
+  ],
 });
 
 // Método para agregar un movimiento
@@ -81,4 +83,4 @@ trackingSchema.methods.completeTracking = function () {
   return this.save();
 };
 
-module.exports = mongoose.model('Tracking', trackingSchema);
+module.exports = mongoose.model("Tracking", trackingSchema);

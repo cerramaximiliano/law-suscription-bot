@@ -8,6 +8,7 @@ const successRoutes = require("./src/routes/success"); // Importar la ruta de é
 const webhookRoutes = require("./src/routes/webhook");
 const tracking = require("./src/routes/tracking");
 const logger = require("./src/config/logger");
+const { cronJobs } = require("./src/tasks/cronTasks");
 
 const app = express();
 
@@ -49,7 +50,7 @@ app.use((req, res, next) => {
 });
 
 // Iniciar el servidor
-
+cronJobs()
 app.listen(port, () => {
   console.log(
     `Servidor corriendo en el puerto ${port} en modo ${process.env.NODE_ENV}`
