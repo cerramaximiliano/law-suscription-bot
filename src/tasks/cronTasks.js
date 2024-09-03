@@ -2,42 +2,72 @@ const cron = require("node-cron");
 const Tracking = require("../models/trackingModel");
 const { scrapeCA } = require("../services/scrapingService");
 const logger = require("../config/logger");
+const moment = require("moment");
+
+let queue = [];
+let isProcessing = false;
 
 async function updateTracking(cdNumber, userId, notificationId, type) {
-    try{
-        const scrape = await scrapeCA(cdNumber, userId, notificationId, type);
-        // Aquí harías el scraping usando el captchaResponse y los datos de tracking
-        logger.info(scrape);
-        if (scrape && scrape.success) {
-          const tracking = await Tracking.findOne({ trackingCode: cdNumber });
-          tracking.lastScraped = new Date();
-          tracking.notified = false; // Marcar para notificación al final del día
-          await tracking.save();
-        } else {
-          logger.warn(`Failed to scrape data for ${cdNumber}`);
-        }
-    }catch(err){
-        logger.error(`Error updating scraping ${err}`)
+  try {
+    logger.info(`Iniciando scraping para ${cdNumber}.`);
+    const scrape = await scrapeCA(cdNumber, userId, notificationId, type);
+    if (scrape && scrape.success) {
+      const tracking = await Tracking.findOne({ trackingCode: cdNumber });
+      tracking.lastScraped = new Date();
+      tracking.notified = false;
+      await tracking.save();
+    } else {
+      logger.warn(`Failed to scrape data for ${cdNumber}`);
     }
+  } catch (err) {
+    logger.error(`Error updating scraping ${err}`);
+  } finally {
+    logger.info(`Finalizando scraping para ${cdNumber}.`);
+  }
+}
 
+function processQueue() {
+  if (queue.length === 0 || isProcessing) {
+    return;
+  }
 
-  /* tracking.lastScraped = new Date();
-  tracking.notified = false; // Marcar para notificación al final del día
-  await tracking.save(); */
+  isProcessing = true;
+  const { cdNumber, userId, notificationId, type } = queue.shift();
+  logger.info(`Procesando elemento de la cola: ${cdNumber}. Elementos restantes en cola: ${queue.length}`);
+
+  updateTracking(cdNumber, userId, notificationId, type).finally(() => {
+    setTimeout(() => {
+      isProcessing = false;
+      logger.info(`Elemento procesado y eliminado de la cola: ${cdNumber}`);
+      processQueue();
+    }, 300000); // Esperar 5 minutos antes de procesar el siguiente en la cola
+  });
 }
 
 const cronJobs = () => {
-  cron.schedule("0 */2 * * *", async () => {
-    logger.info(`Update trancking cron job start`);
+  cron.schedule("*/15 * * * *", async () => {
+    logger.info(`Update tracking cron job start`);
+    const startOfDay = moment().startOf('day').toDate();
     const trackings = await Tracking.find({
-      isComplete: false,
-      lastScraped: { $lte: new Date(Date.now() - 86400000) },
+      isCompleted: false,
+      $or: [
+        { lastScraped: { $lt: startOfDay } },
+        { lastScraped: { $exists: false } }
+      ]
     });
-        logger.info(tracking.trackingCode, tracking.userId, null, tracking.trackingType);
-        for (const tracking of trackings) {
-          await updateTracking(tracking.trackingCode, tracking.userId, null, tracking.trackingType);
-          await new Promise(resolve => setTimeout(resolve, 300000)); // Esperar 5 minutos entre cada solicitud
-        }
+
+    logger.info(`Trackings found: ${trackings.length}`);
+    trackings.forEach(tracking => {
+      queue.push({
+        cdNumber: tracking.trackingCode,
+        userId: tracking.userId,
+        notificationId: null,
+        type: tracking.trackingType
+      });
+      logger.info(`Elemento añadido a la cola: ${tracking.trackingCode}. Total en cola: ${queue.length}`);
+    });
+
+    processQueue(); // Iniciar el procesamiento de la cola
   });
 };
 

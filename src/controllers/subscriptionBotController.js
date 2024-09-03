@@ -872,7 +872,7 @@ exports.handleViewTrackingMovements = async (ctx) => {
     }
 
     const movements = tracking.movements;
-    let message = `*CD ${tracking.trackingCode}*\n\n`;
+    let message = `*CD ${tracking.trackingCode}*\nÚltima actualización: ${moment(tracking.lastUpdated).format('YYYY-MM-DD HH:mm') }\n\n`;
     if (movements.length === 0) {
       message += "No hay movimientos.";
     } else {
