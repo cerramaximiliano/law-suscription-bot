@@ -23,8 +23,8 @@ const verifyRecaptcha = async (token) => {
       null,
       {
         params: {
-          secret: secretKey, //
-          response: token, //6Lf3iSgTAAAAAFSSa4Ow3_1cKPA7LsUSI24tTtSE
+          secret: secretKey,
+          response: token,
         },
       }
     );
