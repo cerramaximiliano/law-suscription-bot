@@ -1,5 +1,7 @@
-// scrapingService.js
-const puppeteer = require("puppeteer");
+const { chromium } = require("playwright");
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+puppeteer.use(StealthPlugin());
 const fs = require("fs");
 const path = require("path");
 const logger = require("../config/logger");
@@ -9,6 +11,41 @@ const {
 const { resolveCaptcha } = require("./captchaService");
 const { simulateHumanLikeMouseMovements } = require("./mouseMovementService");
 const { randomDelay } = require("../utils/utils");
+const Captcha = require("2captcha");
+const axios = require("axios");
+
+const verifyRecaptcha = async (token) => {
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+
+  try {
+    const response = await axios.post(
+      "https://www.google.com/recaptcha/api/siteverify",
+      null,
+      {
+        params: {
+          secret: secretKey, //
+          response: token, //6Lf3iSgTAAAAAFSSa4Ow3_1cKPA7LsUSI24tTtSE
+        },
+      }
+    );
+    const verificationResult = response.data;
+    console.log(verificationResult)
+    if (verificationResult.success) {
+      logger.info("reCAPTCHA verificado con éxito.");
+      return true;
+    } else {
+      logger.error(
+        "Error en la verificación de reCAPTCHA:",
+        verificationResult["error-codes"]
+      );
+      return false;
+    }
+  } catch (error) {
+    console.log(error)
+    logger.error("Error al verificar reCAPTCHA:", error.message);
+    return false;
+  }
+};
 
 const scrapeCA = async (
   cdNumber = "164278815",
@@ -39,6 +76,7 @@ const scrapeCA = async (
       executablePath: "/usr/bin/google-chrome",
       userDataDir: "/usr/bin/custom/cache",
     });
+
     const page = await browser.newPage();
 
     logger.info("Navegando a la página");
@@ -49,12 +87,40 @@ const scrapeCA = async (
     // Simular movimientos de mouse
     await simulateHumanLikeMouseMovements(page);
 
-    // Resolver CAPTCHA
-    const captchaResponse = await resolveCaptcha(page);
+    const isCaptchaPresent = await page.evaluate(() => {
+      return document.querySelector(".g-recaptcha") !== null;
+    });
+    logger.info(`Captcha class: ${isCaptchaPresent}`);
+
+    let captchaResponse;
+/*     try {
+      const solver = new Captcha.Solver(process.env.RECAPTCHA_API_KEY);
+      captchaResponse = await solver.recaptcha(
+        process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
+        process.env.RECAPTCHA_SCRAPE_PAGE,
+        {
+          proxy: `${process.env.RECAPTCHA_USER}:${process.env.RECAPTCHA_PASSWORD}@${process.env.RECAPTCHA_PROXY}`,
+          proxytype: "HTTPS",
+        }
+      );
+
+      if (!captchaResponse || !captchaResponse.data) {
+        throw new Error("Error al resolver CAPTCHA.");
+      }
+    } catch (err) {
+      logger.error(`Error al resolver CAPTCHA: ${err.message}`);
+      throw err;
+    } */
+
+      captchaResponse = await resolveCaptcha(page);
+
     if (!captchaResponse) throw new Error("Error al resolver CAPTCHA.");
 
+    const isTokenValid = await verifyRecaptcha(captchaResponse.data);
+    logger.info(isTokenValid);
+
     // Completar formulario
-    await completeForm(page, cdNumber, captchaResponse);
+    await completeForm(page, cdNumber, captchaResponse.data);
 
     // Simular movimientos de mouse antes de enviar el formulario
     await simulateHumanLikeMouseMovements(page);
@@ -69,14 +135,25 @@ const scrapeCA = async (
     });
 
     // Tomar captura de pantalla y extraer datos
-    const screenshotPath = await captureScreenshot(page, cdNumber);
     const tableData = await extractTableData(page);
 
     if (tableData.length === 0) {
       // No se encontraron resultados
-      result.message = "No se encontraron resultados para el número de seguimiento.";
+      const screenshotPath = await captureScreenshot(
+        page,
+        cdNumber,
+        "/failure"
+      );
+      result.message =
+        "No se encontraron resultados para el número de seguimiento.";
     } else {
       // Guardar datos en la base de datos
+      const screenshotPath = await captureScreenshot(
+        page,
+        cdNumber,
+        "/success"
+      );
+
       const trackingResult = await saveOrUpdateTrackingData(
         cdNumber,
         userId,
@@ -93,7 +170,7 @@ const scrapeCA = async (
 
     logger.info(result.message);
   } catch (err) {
-    console.log(err)
+    console.log(err);
     logger.error(`Error en tarea de scraping tracking: ${err}`);
     result.message = `Error en tarea de scraping tracking: ${err.message}`;
   } finally {
@@ -145,7 +222,7 @@ const submitForm = async (page) => {
     });
 
     logger.info("Haciendo clic en el checkbox de reCAPTCHA");
-    await recaptchaFrame.click(".recaptcha-checkbox-border");
+    await recaptchaFrame.click(".recaptcha-checkbox-border", { force: true });
 
     // Esperar un poco después de hacer clic en el checkbox
     await new Promise((resolve) => {
@@ -170,7 +247,7 @@ const submitForm = async (page) => {
   });
 };
 
-const captureScreenshot = async (page, cdNumber) => {
+const captureScreenshot = async (page, cdNumber, subPath) => {
   // Esperar hasta que el resultado esté visible
   await page.waitForSelector("#resultado", {
     visible: true,
@@ -178,7 +255,7 @@ const captureScreenshot = async (page, cdNumber) => {
   });
 
   // Crear la carpeta de capturas de pantalla si no existe
-  const screenshotDir = path.join(__dirname, "screenshots");
+  const screenshotDir = path.join(__dirname, `screenshots${subPath}`);
   if (!fs.existsSync(screenshotDir)) {
     fs.mkdirSync(screenshotDir);
   }
@@ -241,7 +318,9 @@ const extractTableData = async (page) => {
         "No se encontraron resultados para el número de seguimiento."
       );
     } else {
-      logger.warn("No se encontró la tabla ni el mensaje esperado en el sitio.");
+      logger.warn(
+        "No se encontró la tabla ni el mensaje esperado en el sitio."
+      );
     }
 
     // Retornar un arreglo vacío o algún indicativo de que no hubo resultados
