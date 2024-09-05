@@ -18,7 +18,6 @@ async function updateTracking(
   try {
     logger.info(`Iniciando scraping para ${cdNumber}.`);
     const scrape = await scrapeCA(cdNumber, userId, notificationId, type);
-    console.log(scrape);
     if (scrape && scrape.success) {
       const tracking = await Tracking.findOne({ trackingCode: cdNumber });
       tracking.lastScraped = new Date();

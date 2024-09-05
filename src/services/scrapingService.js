@@ -1,4 +1,4 @@
-const { chromium } = require("playwright");
+
 const puppeteer = require("puppeteer-extra");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 
@@ -15,7 +15,6 @@ const { simulateHumanLikeMouseMovements } = require("./mouseMovementService");
 const { randomDelay } = require("../utils/utils");
 const Captcha = require("2captcha");
 const axios = require("axios");
-const { resolveRecaptchaV2 } = require("./screenshots/captchaDBCService");
 const { captchaACSolver } = require("./captchaACService");
 const { capsolver } = require("./captchaCapService");
 
@@ -178,7 +177,7 @@ const scrapeCA = async (
     await page.goto("https://www.correoargentino.com.ar/formularios/ondnc", {
       waitUntil: "domcontentloaded",
     });
-    const ip = getPublicIP();
+    const ip = await getPublicIP();
     if (ip) {
       result.ip = ip;
     }
@@ -203,7 +202,7 @@ const scrapeCA = async (
         }
       );
       captchaResponse = captchaResponse.data;
-      console.log(captchaResponse);
+
       if (!captchaResponse) {
         throw new Error("Error al resolver CAPTCHA.");
       }
@@ -262,6 +261,7 @@ const scrapeCA = async (
         "/success"
       );
 
+      console.log(tableData)
       const trackingResult = await saveOrUpdateTrackingData(
         cdNumber,
         userId,
@@ -278,7 +278,6 @@ const scrapeCA = async (
 
     logger.info(result.message);
   } catch (err) {
-    console.log(err);
     logger.error(`Error en tarea de scraping tracking: ${err}`);
     result.message = `Error en tarea de scraping tracking: ${err.message}`;
   } finally {

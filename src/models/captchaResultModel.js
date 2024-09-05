@@ -5,7 +5,8 @@ const CaptchaResultSchema = new mongoose.Schema({
   service: { type: String, required: true }, // Nombre del servicio que resolvió el captcha
   success: { type: Number, default: 0 },
   failure: { type: Number, default: 0 },
-  ipsUsed: [{ type: String }] 
+  ipsUsedSuccess: [{ type: String }],
+  ipsUsedFailure: [{ type: String }],
 });
 
 const CaptchaResult = mongoose.model('CaptchaResult', CaptchaResultSchema);

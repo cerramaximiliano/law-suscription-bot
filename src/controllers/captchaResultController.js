@@ -13,13 +13,18 @@ const logCaptchaResult = async (service, success, ip = null) => {
     }
 
     if (success) {
+      if (ip){
+        result.ipsUsedSuccess.push(ip);
+      }
       result.success += 1;
     } else {
+      if (ip){
+        result.ipsUsedFailure.push(ip)
+      }
       result.failure += 1;
     }
-    if (ip) {
-      result.ipsUsed.push(ip);
-    }
+
+
     await result.save();
   } catch (error) {
     console.error('Error logging captcha result:', error);
