@@ -60,11 +60,23 @@ function requestCaptchaResults(apiKey, requestId) {
 
 async function resolveCaptcha(page) {
   logger.info("Iniciando solicitud de CAPTCHA");
+  
+  const startTime = Date.now(); // Tiempo inicial
   const requestId = await initiateCaptchaRequest(apiKey);
+  
   const response = await pollForRequestResults(apiKey, requestId);
+  const endTime = Date.now(); // Tiempo final
+
+  const totalTime = (endTime - startTime) / 1000; // Tiempo en segundos
+  const minutes = Math.floor(totalTime / 60);
+  const seconds = Math.floor(totalTime % 60);
+
   logger.info(`Captcha response recibido: ${response}`);
+  logger.info(`Tiempo total de resolución del CAPTCHA: ${minutes}m ${seconds}s`);
+  
   return response;
 }
+
 
 module.exports = {
   resolveCaptcha,

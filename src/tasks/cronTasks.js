@@ -1,24 +1,33 @@
 const cron = require("node-cron");
 const Tracking = require("../models/trackingModel");
-const { scrapeCA } = require("../services/scrapingService");
+const {
+  scrapeCA,
+  scrapeWithoutBrowser,
+} = require("../services/scrapingService");
 const logger = require("../config/logger");
 const moment = require("moment");
 const { logCaptchaResult } = require("../controllers/captchaResultController");
 
-
-async function updateTracking(cdNumber, userId, notificationId, type, captchaService) {
+async function updateTracking(
+  cdNumber,
+  userId,
+  notificationId,
+  type,
+  captchaService
+) {
   try {
     logger.info(`Iniciando scraping para ${cdNumber}.`);
     const scrape = await scrapeCA(cdNumber, userId, notificationId, type);
+    console.log(scrape);
     if (scrape && scrape.success) {
       const tracking = await Tracking.findOne({ trackingCode: cdNumber });
       tracking.lastScraped = new Date();
       tracking.notified = false;
-      await logCaptchaResult(captchaService, true);
+      await logCaptchaResult(captchaService, true, scrape.ip);
       await tracking.save();
     } else {
       logger.warn(`Failed to scrape data for ${cdNumber}`);
-      await logCaptchaResult(captchaService, false);
+      await logCaptchaResult(captchaService, false, scrape.ip);
     }
   } catch (err) {
     logger.error(`Error updating scraping ${err}`);
@@ -28,36 +37,37 @@ async function updateTracking(cdNumber, userId, notificationId, type, captchaSer
 }
 
 const cronJobs = async () => {
-  //cron.schedule("*/1 5-20 * * 1-5", async () => {
-    logger.info(`Update tracking cron job start`);
+  //cron.schedule("*/3 5-20 * * 1-5", async () => {
 
-    const startOfDay = moment().startOf("day").toDate();
-    const tracking = await Tracking.findOneAndUpdate(
-      {
-        isCompleted: false,
-        $or: [
-          { lastScraped: { $lt: startOfDay } },
-          { lastScraped: { $exists: false } },
-        ],
-      },
-      { $set: { isProcessing: true } }, // Marca el elemento como en proceso
-      { sort: { lastScraped: 1 }, new: true } // Selecciona el más antiguo
+  logger.info(`Update tracking cron job start`);
+
+  const startOfDay = moment().startOf("day").toDate();
+  const tracking = await Tracking.findOneAndUpdate(
+    {
+      isCompleted: false,
+      $or: [
+        { lastScraped: { $lt: startOfDay } },
+        { lastScraped: { $exists: false } },
+      ],
+    },
+    { $set: { isProcessing: true } }, // Marca el elemento como en proceso
+    { sort: { lastScraped: 1 }, new: true } // Selecciona el más antiguo
+  );
+
+  if (tracking) {
+    logger.info(`Iniciando scraping para ${tracking.trackingCode}.`);
+    await updateTracking(
+      tracking.trackingCode,
+      tracking.userId,
+      null,
+      tracking.trackingType,
+      "2Captcha"
     );
-
-    if (tracking) {
-      logger.info(`Iniciando scraping para ${tracking.trackingCode}.`);
-      await updateTracking(
-        tracking.trackingCode,
-        tracking.userId,
-        null,
-        tracking.trackingType,
-        "2Captcha"
-      );
-      logger.info(`Finalizando scraping para ${tracking.trackingCode}.`);
-    } else {
-      logger.info("No se encontraron tracking pendientes para procesar.");
-    }
-//  });
+    logger.info(`Finalizando scraping para ${tracking.trackingCode}.`);
+  } else {
+    logger.info("No se encontraron tracking pendientes para procesar.");
+  }
+  //});
 };
 
 module.exports = { cronJobs };

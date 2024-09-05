@@ -3,7 +3,7 @@ const CaptchaResult = require("../models/captchaResultModel");
 const moment = require('moment');
 
 // Función para registrar un éxito o fracaso en la resolución de captchas
-const logCaptchaResult = async (service, success) => {
+const logCaptchaResult = async (service, success, ip = null) => {
   try {
     const today = moment().startOf('day').toDate(); // Fecha de hoy
     let result = await CaptchaResult.findOne({ date: today, service });
@@ -17,7 +17,9 @@ const logCaptchaResult = async (service, success) => {
     } else {
       result.failure += 1;
     }
-
+    if (ip) {
+      result.ipsUsed.push(ip);
+    }
     await result.save();
   } catch (error) {
     console.error('Error logging captcha result:', error);

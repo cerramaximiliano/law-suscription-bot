@@ -1,5 +1,7 @@
 const { chromium } = require("playwright");
 const puppeteer = require("puppeteer-extra");
+const { HttpsProxyAgent } = require("https-proxy-agent");
+
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 puppeteer.use(StealthPlugin());
 const fs = require("fs");
@@ -13,37 +15,133 @@ const { simulateHumanLikeMouseMovements } = require("./mouseMovementService");
 const { randomDelay } = require("../utils/utils");
 const Captcha = require("2captcha");
 const axios = require("axios");
+const { resolveRecaptchaV2 } = require("./screenshots/captchaDBCService");
+const { captchaACSolver } = require("./captchaACService");
+const { capsolver } = require("./captchaCapService");
+
+const siteKey = process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY;
+const pageUrl = process.env.RECAPTCHA_SCRAPE_PAGE;
+const user = process.env.RECAPTCHA_USER;
+const password = process.env.RECAPTCHA_PASSWORD;
+const dns = process.env.RECAPTCHA_DNS;
+const port = process.env.RECAPTCHA_PORT;
+
+const retryCaptchaValidation = async (maxRetries, siteKey, pageUrl) => {
+  let attempts = 0;
+  let isTokenValid = false;
+  let captchaResponse;
+
+  while (attempts < maxRetries) {
+    attempts += 1;
+    logger.info(`Intento ${attempts} de resolver CAPTCHA.`);
+
+    captchaResponse = await captchaACSolver(pageUrl, siteKey); // Solicita nuevo captcha
+
+    if (!captchaResponse) {
+      logger.error("Error al resolver CAPTCHA.");
+      continue; // Si falla, reintenta
+    }
+
+    isTokenValid = await verifyRecaptcha(captchaResponse);
+
+    if (isTokenValid) {
+      logger.info("CAPTCHA validado correctamente.");
+      break; // Sale del bucle si se valida correctamente
+    } else {
+      logger.warn(
+        `Token inválido. Reintentando... (${attempts}/${maxRetries})`
+      );
+    }
+  }
+
+  if (!isTokenValid) {
+    throw new Error("No se pudo validar el CAPTCHA tras varios intentos.");
+  }
+
+  return captchaResponse;
+};
+
+async function getPublicIP() {
+  const encodedUser = encodeURIComponent(user);
+  const encodedPassword = encodeURIComponent(password);
+
+  // Configuración del proxy (igual que con `curl`)
+  try {
+    const response = await axios.get("http://icanhazip.com", {
+      proxy: {
+        protocol: "http",
+        host: dns,
+        port: port,
+        auth: {
+          username: encodedUser, // Asegúrate de usar las credenciales escapadas
+          password: encodedPassword,
+        },
+      },
+    });
+    logger.info(`Tu IP pública es: ${response.data.trim()}`);
+    return response.data.trim();
+  } catch (error) {
+    logger.error("Error al obtener la IP pública:", error.message);
+  }
+}
 
 const verifyRecaptcha = async (token) => {
   const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+  const proxyUrl = `http://${user}:${password}@${dns}:${port}`;
+  const proxyAgent = new HttpsProxyAgent(proxyUrl);
+  logger.info(`Recaptcha token to verify: ${token}`);
 
   try {
     const response = await axios.post(
       "https://www.google.com/recaptcha/api/siteverify",
-      null,
+      new URLSearchParams({
+        secret: secretKey,
+        response: token,
+        // Puedes incluir el remoteip si es necesario
+        // remoteip: 'user-ip-address'
+      }),
       {
-        params: {
-          secret: secretKey,
-          response: token,
+        httpsAgent: proxyAgent, // Usar proxy
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded", // Importante para enviar datos en el cuerpo de la solicitud
         },
       }
     );
+
     const verificationResult = response.data;
-    console.log(verificationResult)
     if (verificationResult.success) {
       logger.info("reCAPTCHA verificado con éxito.");
       return true;
     } else {
-      logger.error(
-        "Error en la verificación de reCAPTCHA:",
-        verificationResult["error-codes"]
-      );
+      let error = verificationResult["error-codes"]
+        ? verificationResult["error-codes"][0]
+        : "Error desconocido";
+      logger.error("Error en la verificación de reCAPTCHA:", error);
       return false;
     }
   } catch (error) {
-    console.log(error)
+    console.log("Error al verificar reCAPTCHA", error);
     logger.error("Error al verificar reCAPTCHA:", error.message);
     return false;
+  }
+};
+
+const scrapeWithoutBrowser = async () => {
+  try {
+    const captchaResponse = await capsolver(siteKey, pageUrl);
+
+    console.log(captchaResponse);
+
+    if (!captchaResponse) throw new Error("Error al resolver CAPTCHA.");
+
+    /* const maxRetries = 5;
+    captchaResponse = await retryCaptchaValidation(maxRetries, siteKey, pageUrl);
+ */
+
+    const isTokenValid = await verifyRecaptcha(captchaResponse);
+    logger.info("Is token valid: ", isTokenValid);
+  } catch (err) {
+    console.log(err);
   }
 };
 
@@ -58,31 +156,32 @@ const scrapeCA = async (
     success: false,
     message: "",
     data: null,
+    ip: "",
   };
 
   try {
     browser = await puppeteer.launch({
       headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--no-first-run",
-        "--no-zygote",
-        "--single-process",
-        "--disable-gpu",
-      ],
+      args: ["--no-sandbox", `--proxy-server=${dns}:${port}`],
+      ignoreDefaultArgs: ["--disable-extensions"],
       defaultViewport: null,
       executablePath: "/usr/bin/google-chrome",
       userDataDir: "/usr/bin/custom/cache",
     });
 
     const page = await browser.newPage();
-
+    await page.authenticate({
+      username: user, // Tu usuario del proxy
+      password: password, // Tu contraseña del proxy
+    });
     logger.info("Navegando a la página");
     await page.goto("https://www.correoargentino.com.ar/formularios/ondnc", {
       waitUntil: "domcontentloaded",
     });
+    const ip = getPublicIP();
+    if (ip) {
+      result.ip = ip;
+    }
 
     // Simular movimientos de mouse
     await simulateHumanLikeMouseMovements(page);
@@ -93,7 +192,7 @@ const scrapeCA = async (
     logger.info(`Captcha class: ${isCaptchaPresent}`);
 
     let captchaResponse;
-/*     try {
+    try {
       const solver = new Captcha.Solver(process.env.RECAPTCHA_API_KEY);
       captchaResponse = await solver.recaptcha(
         process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
@@ -103,22 +202,31 @@ const scrapeCA = async (
           proxytype: "HTTPS",
         }
       );
-
-      if (!captchaResponse || !captchaResponse.data) {
+      captchaResponse = captchaResponse.data;
+      console.log(captchaResponse);
+      if (!captchaResponse) {
         throw new Error("Error al resolver CAPTCHA.");
       }
     } catch (err) {
       logger.error(`Error al resolver CAPTCHA: ${err.message}`);
       throw err;
-    } */
+    }
 
-      captchaResponse = await resolveCaptcha(page);
+    //captchaResponse = await resolveCaptcha(page);
+    //  captchaResponse = await captchaACSolver()
+    //captchaResponse = await capsolver(siteKey, pageUrl);
+
+    //console.log(captchaResponse);
 
     if (!captchaResponse) throw new Error("Error al resolver CAPTCHA.");
 
-    const isTokenValid = await verifyRecaptcha(captchaResponse.data);
-    logger.info(isTokenValid);
+    /* const maxRetries = 5;
+    captchaResponse = await retryCaptchaValidation(maxRetries, siteKey, pageUrl);
+ */
 
+    const isTokenValid = await verifyRecaptcha(captchaResponse);
+    logger.info("Is token valid: ", isTokenValid);
+    logger.info(`Token: ${captchaResponse}`);
     // Completar formulario
     await completeForm(page, cdNumber, captchaResponse.data);
 
@@ -328,4 +436,4 @@ const extractTableData = async (page) => {
   }
 };
 
-module.exports = { scrapeCA };
+module.exports = { scrapeCA, scrapeWithoutBrowser };
