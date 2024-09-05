@@ -80,7 +80,8 @@ async function getPublicIP() {
     logger.info(`Tu IP pública es: ${response.data.trim()}`);
     return response.data.trim();
   } catch (error) {
-    logger.error("Error al obtener la IP pública:", error.message);
+    logger.error("Error al obtener la IP pública:", error);
+    throw new Error(error)
   }
 }
 
@@ -148,7 +149,8 @@ const scrapeCA = async (
   cdNumber = "164278815",
   userId = "66c78ff7e79922bf212a7e43",
   notificationId = "3564832",
-  trackingType = "telegrama"
+  trackingType = "telegrama",
+  captchaService = "2Captcha"  // Añadimos un parámetro para elegir el servicio de captcha
 ) => {
   let browser;
   let result = {
@@ -156,6 +158,7 @@ const scrapeCA = async (
     message: "",
     data: null,
     ip: "",
+    service: captchaService,  // Registramos el servicio en el objeto result
   };
 
   try {
@@ -170,62 +173,84 @@ const scrapeCA = async (
 
     const page = await browser.newPage();
     await page.authenticate({
-      username: user, // Tu usuario del proxy
-      password: password, // Tu contraseña del proxy
+      username: user,  // Usuario del proxy
+      password: password,  // Contraseña del proxy
     });
+
     logger.info("Navegando a la página");
     await page.goto("https://www.correoargentino.com.ar/formularios/ondnc", {
       waitUntil: "domcontentloaded",
     });
+
     const ip = await getPublicIP();
     if (ip) {
       result.ip = ip;
     }
 
-    // Simular movimientos de mouse
-    await simulateHumanLikeMouseMovements(page);
-
-    const isCaptchaPresent = await page.evaluate(() => {
-      return document.querySelector(".g-recaptcha") !== null;
-    });
-    logger.info(`Captcha class: ${isCaptchaPresent}`);
-
+    // Medir el tiempo de resolución del CAPTCHA
+    const startTime = Date.now();
     let captchaResponse;
+
     try {
-      const solver = new Captcha.Solver(process.env.RECAPTCHA_API_KEY);
-      captchaResponse = await solver.recaptcha(
-        process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
-        process.env.RECAPTCHA_SCRAPE_PAGE,
-        {
-          proxy: `${process.env.RECAPTCHA_USER}:${process.env.RECAPTCHA_PASSWORD}@${process.env.RECAPTCHA_PROXY}`,
-          proxytype: "HTTPS",
-        }
-      );
-      captchaResponse = captchaResponse.data;
+      // Seleccionamos el servicio de CAPTCHA según el parámetro
+      switch (captchaService) {
+        case "2Captcha":
+          const solver = new Captcha.Solver(process.env.RECAPTCHA_API_KEY);
+          captchaResponse = await solver.recaptcha(
+            process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
+            process.env.RECAPTCHA_SCRAPE_PAGE,
+            {
+              proxy: `${process.env.RECAPTCHA_USER}:${process.env.RECAPTCHA_PASSWORD}@${process.env.RECAPTCHA_PROXY}`,
+              proxytype: "HTTPS",
+            }
+          );
+          captchaResponse = captchaResponse.data;
+          break;
+
+        case "capsolver":
+          captchaResponse = await capsolver(
+            process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
+            process.env.RECAPTCHA_SCRAPE_PAGE
+          );
+          break;
+
+        case "anticaptcha":
+          captchaResponse = await captchaACSolver(
+            process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
+            process.env.RECAPTCHA_SCRAPE_PAGE
+          );
+          break;
+
+        default:
+          throw new Error(`Servicio de CAPTCHA no reconocido: ${captchaService}`);
+      }
 
       if (!captchaResponse) {
         throw new Error("Error al resolver CAPTCHA.");
       }
     } catch (err) {
-      logger.error(`Error al resolver CAPTCHA: ${err.message}`);
+      logger.error(`Error al resolver CAPTCHA con ${captchaService}: ${err.message}`);
       throw err;
     }
 
-    //captchaResponse = await resolveCaptcha(page);
-    //  captchaResponse = await captchaACSolver()
-    //captchaResponse = await capsolver(siteKey, pageUrl);
+    // Medimos el tiempo final de resolución
+    const endTime = Date.now();
+    const resolutionTime = (endTime - startTime) / 1000;  // Convertimos a segundos
 
-    //console.log(captchaResponse);
+    // Verificar si el tiempo de resolución es mayor a 120 segundos (2 minutos)
+    if (resolutionTime > 120) {
+      result.message = `Tiempo de resolución de CAPTCHA demasiado largo: ${resolutionTime} segundos.`;
+      logger.warn(result.message);
+      return result;  // Retornamos el error directamente si tarda más de 2 minutos
+    }
 
-    if (!captchaResponse) throw new Error("Error al resolver CAPTCHA.");
+    logger.info(`Tiempo de resolución del CAPTCHA: ${resolutionTime} segundos`);
+    logger.info(`Token: ${captchaResponse}`);
 
-    /* const maxRetries = 5;
-    captchaResponse = await retryCaptchaValidation(maxRetries, siteKey, pageUrl);
- */
-
+    // Validar el token del CAPTCHA
     const isTokenValid = await verifyRecaptcha(captchaResponse);
     logger.info("Is token valid: ", isTokenValid);
-    logger.info(`Token: ${captchaResponse}`);
+
     // Completar formulario
     await completeForm(page, cdNumber, captchaResponse.data);
 
@@ -261,7 +286,6 @@ const scrapeCA = async (
         "/success"
       );
 
-      console.log(tableData)
       const trackingResult = await saveOrUpdateTrackingData(
         cdNumber,
         userId,
