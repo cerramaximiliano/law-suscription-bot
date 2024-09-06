@@ -1,14 +1,23 @@
 const axios = require('axios');
 
 const api_key = process.env.CAP_SOLVER_API_KEY;
+const user = process.env.RECAPTCHA_USER
+const password = process.env.RECAPTCHA_PASSWORD
+const dns = process.env.RECAPTCHA_DNS
+const port = process.env.RECAPTCHA_PORT
 
 async function capsolver(site_key, site_url) {
   const payload = {
     clientKey: api_key,
     task: {
-      type: 'ReCaptchaV2TaskProxyLess',
+      type: 'ReCaptchaV2Task',
       websiteKey: site_key,
-      websiteURL: site_url
+      websiteURL: site_url,
+      proxyType: "https",// socks5 | http | https
+      proxyAddress: dns,
+      proxyPort: port,
+      proxyLogin: user,
+      proxyPassword: password, 
     }
   };
 

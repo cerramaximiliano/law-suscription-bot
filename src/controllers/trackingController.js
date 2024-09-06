@@ -22,25 +22,30 @@ const saveOrUpdateTrackingData = async (
         logger.info(
           `Hay datos en la tabla para actualizar en el código: ${trackingCode}`
         );
+        
         tableData.forEach((movement) => {
+          const movementDate = moment(movement.date, "DD-MM-YYYY HH:mm").toDate();
           const exists = tracking.movements.some(
             (m) =>
-              m.date.getTime() ===
-                moment(movement.date, "DD-MM-YYYY HH:mm").toDate().getTime() &&
+              m.date.getTime() === movementDate.getTime() &&
               m.planta === movement.planta &&
               m.historia === movement.historia &&
               m.estado === movement.estado
           );
 
           if (!exists) {
-            tracking.movements.push({
-              date: moment(movement.date, "DD-MM-YYYY HH:mm").toDate(),
+            // Insertar el nuevo movimiento al principio para mantener el orden descendente
+            tracking.movements.unshift({
+              date: movementDate,
               planta: movement.planta,
               historia: movement.historia,
               estado: movement.estado || "",
             });
           }
         });
+
+        // Asegurarse de que los movimientos están ordenados de mayor a menor fecha
+        tracking.movements.sort((a, b) => b.date - a.date);
 
         tracking.lastUpdated = Date.now();
       } else {
@@ -79,6 +84,9 @@ const saveOrUpdateTrackingData = async (
           : [],
       });
 
+      // Asegurarse de que los movimientos están ordenados de mayor a menor fecha
+      tracking.movements.sort((a, b) => b.date - a.date);
+
       logger.info("Nuevo tracking creado correctamente.");
     }
 
@@ -91,6 +99,7 @@ const saveOrUpdateTrackingData = async (
     throw error;
   }
 };
+
 
 
 async function getTrackingTelegramas(userId, isCompleted) {

@@ -1,4 +1,3 @@
-
 const puppeteer = require("puppeteer-extra");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 
@@ -13,10 +12,10 @@ const {
 const { resolveCaptcha } = require("./captchaService");
 const { simulateHumanLikeMouseMovements } = require("./mouseMovementService");
 const { randomDelay } = require("../utils/utils");
-const Captcha = require("2captcha");
 const axios = require("axios");
 const { captchaACSolver } = require("./captchaACService");
 const { capsolver } = require("./captchaCapService");
+const TwoCaptcha = require("@2captcha/captcha-solver");
 
 const siteKey = process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY;
 const pageUrl = process.env.RECAPTCHA_SCRAPE_PAGE;
@@ -81,7 +80,7 @@ async function getPublicIP() {
     return response.data.trim();
   } catch (error) {
     logger.error("Error al obtener la IP pública:", error);
-    throw new Error(error)
+    throw new Error(error);
   }
 }
 
@@ -135,8 +134,8 @@ const scrapeWithoutBrowser = async () => {
     if (!captchaResponse) throw new Error("Error al resolver CAPTCHA.");
 
     /* const maxRetries = 5;
-    captchaResponse = await retryCaptchaValidation(maxRetries, siteKey, pageUrl);
- */
+      captchaResponse = await retryCaptchaValidation(maxRetries, siteKey, pageUrl);
+  */
 
     const isTokenValid = await verifyRecaptcha(captchaResponse);
     logger.info("Is token valid: ", isTokenValid);
@@ -150,7 +149,7 @@ const scrapeCA = async (
   userId = "66c78ff7e79922bf212a7e43",
   notificationId = "3564832",
   trackingType = "telegrama",
-  captchaService = "2Captcha"  // Añadimos un parámetro para elegir el servicio de captcha
+  captchaService = "2Captcha"
 ) => {
   let browser;
   let result = {
@@ -158,7 +157,7 @@ const scrapeCA = async (
     message: "",
     data: null,
     ip: "",
-    service: captchaService,  // Registramos el servicio en el objeto result
+    service: captchaService, // Registramos el servicio en el objeto result
   };
 
   try {
@@ -173,8 +172,8 @@ const scrapeCA = async (
 
     const page = await browser.newPage();
     await page.authenticate({
-      username: user,  // Usuario del proxy
-      password: password,  // Contraseña del proxy
+      username: user, // Usuario del proxy
+      password: password, // Contraseña del proxy
     });
 
     logger.info("Navegando a la página");
@@ -187,84 +186,11 @@ const scrapeCA = async (
       result.ip = ip;
     }
 
-    // Medir el tiempo de resolución del CAPTCHA
-    const startTime = Date.now();
-    let captchaResponse;
+    // Resolver CAPTCHA y hacer clic en el checkbox
+    await resolveCaptchaAndClick(page, captchaService);
 
-    try {
-      // Seleccionamos el servicio de CAPTCHA según el parámetro
-      switch (captchaService) {
-        case "2Captcha":
-          const solver = new Captcha.Solver(process.env.RECAPTCHA_API_KEY);
-          captchaResponse = await solver.recaptcha(
-            process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
-            process.env.RECAPTCHA_SCRAPE_PAGE,
-            {
-              proxy: `${process.env.RECAPTCHA_USER}:${process.env.RECAPTCHA_PASSWORD}@${process.env.RECAPTCHA_PROXY}`,
-              proxytype: "HTTPS",
-            }
-          );
-          captchaResponse = captchaResponse.data;
-          break;
-
-        case "capsolver":
-          captchaResponse = await capsolver(
-            process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
-            process.env.RECAPTCHA_SCRAPE_PAGE
-          );
-          break;
-
-        case "anticaptcha":
-          captchaResponse = await captchaACSolver(
-            process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
-            process.env.RECAPTCHA_SCRAPE_PAGE
-          );
-          break;
-
-        default:
-          throw new Error(`Servicio de CAPTCHA no reconocido: ${captchaService}`);
-      }
-
-      if (!captchaResponse) {
-        throw new Error("Error al resolver CAPTCHA.");
-      }
-    } catch (err) {
-      logger.error(`Error al resolver CAPTCHA con ${captchaService}: ${err.message}`);
-      throw err;
-    }
-
-    // Medimos el tiempo final de resolución
-    const endTime = Date.now();
-    const resolutionTime = (endTime - startTime) / 1000;  // Convertimos a segundos
-
-    // Verificar si el tiempo de resolución es mayor a 120 segundos (2 minutos)
-    if (resolutionTime > 120) {
-      result.message = `Tiempo de resolución de CAPTCHA demasiado largo: ${resolutionTime} segundos.`;
-      logger.warn(result.message);
-      return result;  // Retornamos el error directamente si tarda más de 2 minutos
-    }
-
-    logger.info(`Tiempo de resolución del CAPTCHA: ${resolutionTime} segundos`);
-    logger.info(`Token: ${captchaResponse}`);
-
-    // Validar el token del CAPTCHA
-    const isTokenValid = await verifyRecaptcha(captchaResponse);
-    logger.info("Is token valid: ", isTokenValid);
-
-    // Completar formulario
-    await completeForm(page, cdNumber, captchaResponse.data);
-
-    // Simular movimientos de mouse antes de enviar el formulario
-    await simulateHumanLikeMouseMovements(page);
-
-    // Enviar formulario
-    await submitForm(page);
-
-    // Esperar a que los resultados se carguen
-    await page.waitForSelector("#resultado", {
-      visible: true,
-      timeout: 60000,
-    });
+    // Completar y enviar el formulario
+    await completeAndSubmitForm(page, cdNumber);
 
     // Tomar captura de pantalla y extraer datos
     const tableData = await extractTableData(page);
@@ -285,7 +211,6 @@ const scrapeCA = async (
         cdNumber,
         "/success"
       );
-
       const trackingResult = await saveOrUpdateTrackingData(
         cdNumber,
         userId,
@@ -294,7 +219,6 @@ const scrapeCA = async (
         screenshotPath,
         trackingType
       );
-
       result.success = true;
       result.message = "Proceso completado exitosamente";
       result.data = trackingResult;
@@ -311,6 +235,228 @@ const scrapeCA = async (
   }
 
   return result;
+};
+
+const captureScreenshot = async (page, cdNumber, subPath) => {
+  // Esperar hasta que el resultado esté visible
+  await page.waitForSelector("#resultado", {
+    visible: true,
+    timeout: 60000, // Esperar hasta 60 segundos
+  });
+
+  // Crear la carpeta de capturas de pantalla si no existe
+  const screenshotDir = path.join(__dirname, `screenshots${subPath}`);
+  if (!fs.existsSync(screenshotDir)) {
+    fs.mkdirSync(screenshotDir);
+  }
+
+  // Tomar una captura de pantalla del área visible completa
+  const screenshotPath = path.join(screenshotDir, `result-${cdNumber}.png`);
+  await page.screenshot({ path: screenshotPath, fullPage: true });
+
+  logger.info(
+    `Captura de pantalla del resultado guardada en: ${screenshotPath}`
+  );
+  return screenshotPath;
+};
+
+const extractTableData = async (page) => {
+  // Esperar hasta que el selector #resultado esté visible
+  await page.waitForSelector("#resultado", {
+    visible: true,
+    timeout: 60000, // Esperar hasta 60 segundos
+  });
+
+  // Verificar si hay una tabla dentro del elemento #resultado
+  const tableExists = await page.evaluate(() => {
+    const table = document.querySelector("#resultado table");
+    return !!table; // Retorna true si la tabla existe, false si no
+  });
+
+  if (tableExists) {
+    // Si la tabla existe, extraer los datos
+    const tableData = await page.evaluate(() => {
+      const rows = Array.from(
+        document.querySelectorAll("#resultado table tbody tr")
+      );
+      const extractedData = [];
+
+      rows.forEach((row) => {
+        const columns = row.querySelectorAll("td");
+        extractedData.push({
+          date: columns[0]?.innerText.trim() || "",
+          planta: columns[1]?.innerText.trim() || "",
+          historia: columns[2]?.innerText.trim() || "",
+          estado: columns[3]?.innerText.trim() || "",
+        });
+      });
+
+      return extractedData;
+    });
+    logger.info("Datos extraídos de la tabla:", JSON.stringify(tableData));
+    return tableData;
+  } else {
+    // Si no hay tabla, manejar el mensaje de "No se encontraron resultados"
+    const noResultsMessage = await page.evaluate(() => {
+      const alert = document.querySelector("#resultado .alert.alert-info");
+      return alert ? alert.innerText.trim() : null;
+    });
+
+    if (noResultsMessage) {
+      logger.info(
+        "No se encontraron resultados para el número de seguimiento."
+      );
+    } else {
+      logger.warn(
+        "No se encontró la tabla ni el mensaje esperado en el sitio."
+      );
+    }
+
+    // Retornar un arreglo vacío o algún indicativo de que no hubo resultados
+    return [];
+  }
+};
+
+const resolveCaptchaAndClick = async (page, captchaService) => {
+  logger.info("Resolviendo CAPTCHA...");
+
+  // Medir el tiempo de resolución del CAPTCHA
+  const startTime = Date.now();
+  let captchaResponse;
+
+  try {
+    // Seleccionamos el servicio de CAPTCHA según el parámetro
+    switch (captchaService) {
+      case "2Captcha":
+        const solver = new TwoCaptcha.Solver(process.env.RECAPTCHA_API_KEY);
+        const response = (captchaResponse = await solver.recaptcha({
+          pageurl: process.env.RECAPTCHA_SCRAPE_PAGE,
+          googlekey: process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
+          proxy: `${process.env.RECAPTCHA_USER}:${process.env.RECAPTCHA_PASSWORD}@${process.env.RECAPTCHA_PROXY}`,
+          proxytype: "HTTPS",
+        }));
+        captchaResponse = response.data;
+        break;
+
+      case "capsolver":
+        captchaResponse = await capsolver(
+          process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
+          process.env.RECAPTCHA_SCRAPE_PAGE
+        );
+        console.log(captchaResponse);
+        break;
+
+      case "anticaptcha":
+        captchaResponse = await captchaACSolver(
+          process.env.RECAPTCHA_SCRAPE_PAGE_SITE_KEY,
+          process.env.RECAPTCHA_SCRAPE_PAGE
+        );
+        console.log(captchaResponse);
+        break;
+
+      default:
+        throw new Error(`Servicio de CAPTCHA no reconocido: ${captchaService}`);
+    }
+
+    if (!captchaResponse) {
+      throw new Error("Error al resolver CAPTCHA.");
+    }
+  } catch (err) {
+    logger.error(
+      `Error al resolver CAPTCHA con ${captchaService}: ${err.message}`
+    );
+    throw err;
+  }
+
+  logger.info(`Token CAPTCHA: ${captchaResponse}`);
+
+  // Inyectar el token de CAPTCHA en el campo `g-recaptcha-response`
+  await page.evaluate((token) => {
+    const recaptchaResponseField = document.getElementById(
+      "g-recaptcha-response"
+    );
+    if (recaptchaResponseField) {
+      recaptchaResponseField.value = token;
+    } else {
+      throw new Error("Campo g-recaptcha-response no encontrado");
+    }
+  }, captchaResponse);
+
+  await page.evaluate(
+    `document.getElementById("g-recaptcha-response").innerHTML="${captchaResponse}";`
+  );
+
+  logger.info("Token inyectado en el campo g-recaptcha-response");
+
+  // Hacer clic en el checkbox del CAPTCHA
+  const recaptchaFrame = page
+    .frames()
+    .find((frame) => frame.url().includes("recaptcha"));
+  if (recaptchaFrame) {
+    logger.info("Iframe de reCAPTCHA encontrado");
+    await recaptchaFrame.waitForSelector(".recaptcha-checkbox-border", {
+      visible: true,
+      timeout: 60000,
+    });
+    logger.info("Haciendo clic en el checkbox de reCAPTCHA");
+    await recaptchaFrame.click(".recaptcha-checkbox-border", { force: true });
+  } else {
+    throw new Error("No se pudo encontrar el iframe de reCAPTCHA.");
+  }
+
+  // Medir el tiempo final de resolución
+  const endTime = Date.now();
+  const resolutionTime = (endTime - startTime) / 1000; // Convertir a segundos
+  await new Promise((resolve) => {
+    const delay = randomDelay(20, 25);
+    setTimeout(resolve, delay);
+  });
+  // Verificar si el tiempo de resolución es mayor a 120 segundos (2 minutos)
+  if (resolutionTime > 120) {
+    throw new Error(
+      `Tiempo de resolución de CAPTCHA demasiado largo: ${resolutionTime} segundos.`
+    );
+  }
+
+  logger.info(`CAPTCHA resuelto en: ${resolutionTime} segundos`);
+};
+
+const completeAndSubmitForm = async (page, cdNumber) => {
+  logger.info("Completando el formulario...");
+
+  // Seleccionar opción del dropdown
+  await page.select('select[name="producto"]', "CD");
+
+  // Escribir número en el input
+  logger.info("Escribiendo número en el input");
+  await page.waitForSelector("input#numero");
+  await page.type("input#numero", cdNumber);
+
+  // Hacer clic en el botón de submit
+  logger.info("Haciendo clic en el botón de enviar");
+  await page.click("button#btsubmit");
+  // Esperar a que el proceso de "Procesando..." comience y termine
+  logger.info("Esperando que comience el procesamiento...");
+  await page.waitForSelector("#processlabel", {
+    visible: true,
+    timeout: 60000,
+  }); // Espera a que el elemento de procesamiento sea visible
+
+  logger.info("Esperando que el procesamiento termine...");
+  await page.waitForFunction(
+    () => {
+      const processLabel = document.querySelector("#processlabel");
+      return processLabel && processLabel.style.display === "none"; // Espera a que el elemento de procesamiento ya no esté visible
+    },
+    { timeout: 120000 }
+  ); // Esperar hasta 120 segundos si es necesario
+  // Esperar a que los resultados se carguen
+  await page.waitForSelector("#resultado", {
+    visible: true,
+    timeout: 60000,
+  });
+
+  logger.info("Formulario enviado con éxito.");
 };
 
 const completeForm = async (page, cdNumber, captchaResponse) => {
@@ -376,87 +522,6 @@ const submitForm = async (page) => {
     const delay = randomDelay(5, 7);
     setTimeout(resolve, delay);
   });
-};
-
-const captureScreenshot = async (page, cdNumber, subPath) => {
-  // Esperar hasta que el resultado esté visible
-  await page.waitForSelector("#resultado", {
-    visible: true,
-    timeout: 60000, // Esperar hasta 60 segundos
-  });
-
-  // Crear la carpeta de capturas de pantalla si no existe
-  const screenshotDir = path.join(__dirname, `screenshots${subPath}`);
-  if (!fs.existsSync(screenshotDir)) {
-    fs.mkdirSync(screenshotDir);
-  }
-
-  // Tomar una captura de pantalla del área visible completa
-  const screenshotPath = path.join(screenshotDir, `result-${cdNumber}.png`);
-  await page.screenshot({ path: screenshotPath, fullPage: true });
-
-  logger.info(
-    `Captura de pantalla del resultado guardada en: ${screenshotPath}`
-  );
-  return screenshotPath;
-};
-
-const extractTableData = async (page) => {
-  // Esperar hasta que el selector #resultado esté visible
-  await page.waitForSelector("#resultado", {
-    visible: true,
-    timeout: 60000, // Esperar hasta 60 segundos
-  });
-
-  // Verificar si hay una tabla dentro del elemento #resultado
-  const tableExists = await page.evaluate(() => {
-    const table = document.querySelector("#resultado table");
-    return !!table; // Retorna true si la tabla existe, false si no
-  });
-
-  if (tableExists) {
-    // Si la tabla existe, extraer los datos
-    const tableData = await page.evaluate(() => {
-      const rows = Array.from(
-        document.querySelectorAll("#resultado table tbody tr")
-      );
-      const extractedData = [];
-
-      rows.forEach((row) => {
-        const columns = row.querySelectorAll("td");
-        extractedData.push({
-          date: columns[0]?.innerText.trim() || "",
-          planta: columns[1]?.innerText.trim() || "",
-          historia: columns[2]?.innerText.trim() || "",
-          estado: columns[3]?.innerText.trim() || "",
-        });
-      });
-
-      return extractedData;
-    });
-
-    logger.info("Datos extraídos de la tabla:", JSON.stringify(tableData));
-    return tableData;
-  } else {
-    // Si no hay tabla, manejar el mensaje de "No se encontraron resultados"
-    const noResultsMessage = await page.evaluate(() => {
-      const alert = document.querySelector("#resultado .alert.alert-info");
-      return alert ? alert.innerText.trim() : null;
-    });
-
-    if (noResultsMessage) {
-      logger.info(
-        "No se encontraron resultados para el número de seguimiento."
-      );
-    } else {
-      logger.warn(
-        "No se encontró la tabla ni el mensaje esperado en el sitio."
-      );
-    }
-
-    // Retornar un arreglo vacío o algún indicativo de que no hubo resultados
-    return [];
-  }
 };
 
 module.exports = { scrapeCA, scrapeWithoutBrowser };

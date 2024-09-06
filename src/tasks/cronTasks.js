@@ -7,11 +7,12 @@ const logger = require("../config/logger");
 const moment = require("moment");
 const { logCaptchaResult } = require("../controllers/captchaResultController");
 
+
 const captchaServices = ["2Captcha", "capsolver", "anticaptcha"];  // Lista de servicios de CAPTCHA
 let serviceErrors = {
   "2Captcha": 0,
   "capsolver": 0,
-  "anticaptcha": 0
+  "anticaptcha": 0,
 };
 const maxErrorsPerService = 3;  // Umbral de errores antes de rotar servicio
 let currentCaptchaService = captchaServices[0];  // Iniciar con el primer servicio
@@ -68,7 +69,7 @@ async function updateTracking(
 }
 
 const cronJobs = async () => {
-  cron.schedule("*/3 5-20 * * 1-5", async () => {
+  cron.schedule("*/5 5-23 * * 1-5", async () => {
 
     logger.info(`Update tracking cron job start`);
 
@@ -98,6 +99,9 @@ const cronJobs = async () => {
     } else {
       logger.info("No se encontraron tracking pendientes para procesar.");
     }
+  }, {
+    scheduled: true,
+    timezone: "America/Argentina/Buenos_Aires"
   });
 };
 
