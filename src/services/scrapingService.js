@@ -436,20 +436,9 @@ const completeAndSubmitForm = async (page, cdNumber) => {
   logger.info("Haciendo clic en el botón de enviar");
   await page.click("button#btsubmit");
   // Esperar a que el proceso de "Procesando..." comience y termine
-  logger.info("Esperando que comience el procesamiento...");
-  await page.waitForSelector("#processlabel", {
-    visible: true,
-    timeout: 60000,
-  }); // Espera a que el elemento de procesamiento sea visible
 
-  logger.info("Esperando que el procesamiento termine...");
-  await page.waitForFunction(
-    () => {
-      const processLabel = document.querySelector("#processlabel");
-      return processLabel && processLabel.style.display === "none"; // Espera a que el elemento de procesamiento ya no esté visible
-    },
-    { timeout: 120000 }
-  ); // Esperar hasta 120 segundos si es necesario
+  await handleProcessLabel(page);
+
   // Esperar a que los resultados se carguen
   await page.waitForSelector("#resultado", {
     visible: true,
@@ -457,6 +446,43 @@ const completeAndSubmitForm = async (page, cdNumber) => {
   });
 
   logger.info("Formulario enviado con éxito.");
+};
+
+// Intentamos manejar ambos casos: cuando el elemento aparece/desaparece rápidamente o cuando se demora.
+const handleProcessLabel = async (page) => {
+  try {
+    // Esperar a que el selector aparezca
+    logger.info("Esperando que el elemento #processlabel aparezca...");
+
+    // Usa waitForSelector con una espera corta para detectar si el elemento aparece rápidamente
+    await page.waitForSelector("#processlabel", {
+      visible: true,
+      timeout: 5000,
+    });
+    logger.info("El elemento #processlabel ha aparecido.");
+
+    // Una vez que aparece, espera hasta que desaparezca (espera más larga)
+    logger.info("Esperando que el elemento #processlabel desaparezca...");
+    await page.waitForFunction(
+      () => {
+        const element = document.querySelector("#processlabel");
+        return !element || element.style.display === "none"; // Espera a que no exista o su display sea "none"
+      },
+      { timeout: 120000 } // Esperar hasta 120 segundos para su desaparición
+    );
+    logger.info("El elemento #processlabel ha desaparecido.");
+  } catch (error) {
+    // Si el elemento no aparece o no desaparece a tiempo
+    if (error.name === "TimeoutError") {
+      logger.warn(
+        "El elemento #processlabel no apareció o no desapareció dentro del tiempo esperado."
+      );
+    } else {
+      logger.error(
+        `Error inesperado al esperar el elemento #processlabel: ${error.message}`
+      );
+    }
+  }
 };
 
 const completeForm = async (page, cdNumber, captchaResponse) => {
