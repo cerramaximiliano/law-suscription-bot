@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const CaptchaResultSchema = new mongoose.Schema({
   date: { type: Date, default: () => new Date().setHours(0, 0, 0, 0) }, // Almacena solo la fecha
@@ -7,8 +7,10 @@ const CaptchaResultSchema = new mongoose.Schema({
   failure: { type: Number, default: 0 },
   ipsUsedSuccess: [{ type: String }],
   ipsUsedFailure: [{ type: String }],
+  scrapeDuration: [{ type: Date }],
+  type: [{type: String, default: "task"}]
 });
 
-const CaptchaResult = mongoose.model('CaptchaResult', CaptchaResultSchema);
+const CaptchaResult = mongoose.model("CaptchaResult", CaptchaResultSchema);
 
 module.exports = CaptchaResult;

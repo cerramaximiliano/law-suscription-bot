@@ -1,11 +1,17 @@
 const CaptchaResult = require("../models/captchaResultModel");
 
-const moment = require('moment');
+const moment = require("moment");
 
 // Función para registrar un éxito o fracaso en la resolución de captchas
-const logCaptchaResult = async (service, success, ip = null) => {
+const logCaptchaResult = async (
+  service,
+  success,
+  ip = null,
+  type,
+  scrapeDuration
+) => {
   try {
-    const today = moment().startOf('day').toDate(); // Fecha de hoy
+    const today = moment().startOf("day").toDate(); // Fecha de hoy
     let result = await CaptchaResult.findOne({ date: today, service });
 
     if (!result) {
@@ -13,28 +19,29 @@ const logCaptchaResult = async (service, success, ip = null) => {
     }
 
     if (success) {
-      if (ip){
+      if (ip) {
         result.ipsUsedSuccess.push(ip);
       }
       result.success += 1;
     } else {
-      if (ip){
-        result.ipsUsedFailure.push(ip)
+      if (ip) {
+        result.ipsUsedFailure.push(ip);
       }
       result.failure += 1;
     }
 
-
+    result.scrapeDuration = scrapeDuration;
+    result.type = type;
     await result.save();
   } catch (error) {
-    console.error('Error logging captcha result:', error);
+    console.error("Error logging captcha result:", error);
   }
 };
 
 // Función para obtener el reporte de captchas de un día específico y servicio
 const getCaptchaReport = async (date, service) => {
   try {
-    const reportDate = moment(date).startOf('day').toDate();
+    const reportDate = moment(date).startOf("day").toDate();
     const report = await CaptchaResult.findOne({ date: reportDate, service });
 
     if (report) {
@@ -43,7 +50,7 @@ const getCaptchaReport = async (date, service) => {
       return { service, success: 0, failure: 0 };
     }
   } catch (error) {
-    console.error('Error retrieving captcha report:', error);
+    console.error("Error retrieving captcha report:", error);
     throw error;
   }
 };
