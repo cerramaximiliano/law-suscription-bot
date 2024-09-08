@@ -8,7 +8,10 @@ const logCaptchaResult = async (
   success,
   ip = null,
   type,
-  scrapeDuration
+  scrapeDuration,
+  startTime = null,
+  endTime = null,
+  repetitions = null
 ) => {
   try {
     const today = moment().startOf("day").toDate(); // Fecha de hoy
@@ -30,8 +33,12 @@ const logCaptchaResult = async (
       result.failure += 1;
     }
 
-    result.scrapeDuration = scrapeDuration;
-    result.type = type;
+    if (scrapeDuration) result.scrapeDuration.push(scrapeDuration);
+    if (type) result.type = type;
+    if (startTime) result.startTime = startTime;
+    if (endTime) result.endTime = endTime;
+    if (repetitions) result.repetitions = repetitions;
+
     await result.save();
   } catch (error) {
     console.error("Error logging captcha result:", error);

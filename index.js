@@ -9,6 +9,7 @@ const webhookRoutes = require("./src/routes/webhook");
 const tracking = require("./src/routes/tracking");
 const logger = require("./src/config/logger");
 const { cronJobs } = require("./src/tasks/cronTasks");
+const { testScraping } = require("./src/tests/cronTestingTasks");
 
 const app = express();
 
@@ -49,8 +50,12 @@ app.use((req, res, next) => {
   res.status(404).sendFile(path.join(__dirname, "public/views", "404.html"));
 });
 
-// Iniciar el servidor
+
 cronJobs()
+testScraping(50)
+
+
+// Iniciar el servidor
 app.listen(port, () => {
   console.log(
     `Servidor corriendo en el puerto ${port} en modo ${process.env.NODE_ENV}`

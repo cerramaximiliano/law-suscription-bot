@@ -149,7 +149,8 @@ const scrapeCA = async (
   userId = "66c78ff7e79922bf212a7e43",
   notificationId = "3564832",
   trackingType = "telegrama",
-  captchaService = "2Captcha"
+  captchaService = "2Captcha",
+  task = "rutine"
 ) => {
   let browser;
   let result = {
@@ -197,20 +198,16 @@ const scrapeCA = async (
 
     if (tableData.length === 0) {
       // No se encontraron resultados
-      const screenshotPath = await captureScreenshot(
-        page,
-        cdNumber,
-        "/failure"
-      );
+      let path = "";
+      task === "test" ? (path = "/test/failure") : (path = "/failure");
+      const screenshotPath = await captureScreenshot(page, cdNumber, path);
       result.message =
         "No se encontraron resultados para el número de seguimiento.";
     } else {
       // Guardar datos en la base de datos
-      const screenshotPath = await captureScreenshot(
-        page,
-        cdNumber,
-        "/success"
-      );
+      let path = "";
+      task === "test" ? (path = "/test/success") : (path = "/success");
+      const screenshotPath = await captureScreenshot(page, cdNumber, path);
       const trackingResult = await saveOrUpdateTrackingData(
         cdNumber,
         userId,

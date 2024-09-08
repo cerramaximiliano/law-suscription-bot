@@ -60,7 +60,7 @@ async function testScraping(repetitions = 20) {
       if (scrape && scrape.success) {
         // Guardar los resultados en la base de datos, con tiempo de resolución y tipo "testing"
         logger.info(`Scraping completado en ${duration} segundos para ${cdNumber}.`);
-        await logCaptchaResult(currentCaptchaService, true, scrape.ip, type, duration);
+        await logCaptchaResult(currentCaptchaService, true, scrape.ip, "testing", duration);
 
         // Reiniciar el contador de errores para el servicio actual
         serviceErrors[currentCaptchaService] = 0;

@@ -1,16 +1,17 @@
 const mongoose = require("mongoose");
 
 const CaptchaResultSchema = new mongoose.Schema({
-  date: { type: Date, default: () => new Date().setHours(0, 0, 0, 0) }, // Almacena solo la fecha
-  service: { type: String, required: true }, // Nombre del servicio que resolvió el captcha
+  service: { type: String, required: true },
+  date: { type: Date, default: Date.now },
   success: { type: Number, default: 0 },
   failure: { type: Number, default: 0 },
-  ipsUsedSuccess: [{ type: String }],
-  ipsUsedFailure: [{ type: String }],
-  scrapeDuration: [{ type: Date }],
-  type: [{type: String, default: "task"}]
+  ipsUsedSuccess: { type: [String], default: [] },
+  ipsUsedFailure: { type: [String], default: [] },
+  scrapeDuration: [{ type: Number }], // Tiempo que tomó el scraping
+  type: { type: String }, // Tipo de scraping (e.g., "testing")
+  startTime: { type: Date }, // Tiempo de inicio del testing
+  endTime: { type: Date }, // Tiempo de finalización del testing
+  repetitions: { type: Number }, // Cantidad de repeticiones del test
 });
 
-const CaptchaResult = mongoose.model("CaptchaResult", CaptchaResultSchema);
-
-module.exports = CaptchaResult;
+module.exports = mongoose.model("CaptchaResult", CaptchaResultSchema);
