@@ -51,7 +51,7 @@ app.use((req, res, next) => {
 });
 
 
-cronJobs()
+//cronJobs()
 testScraping(50)
 
 

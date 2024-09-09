@@ -13,16 +13,12 @@ async function capsolver(site_key, site_url) {
       type: 'ReCaptchaV2Task',
       websiteKey: site_key,
       websiteURL: site_url,
-      proxyType: "https",// socks5 | http | https
-      proxyAddress: dns,
-      proxyPort: port,
-      proxyLogin: user,
-      proxyPassword: password, 
     }
   };
 
   try {
     const res = await axios.post("https://api.capsolver.com/createTask", payload);
+    console.log(res)
     const task_id = res.data.taskId;
     if (!task_id) {
       console.log("Failed to create task:", res.data);

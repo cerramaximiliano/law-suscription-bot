@@ -7,7 +7,7 @@ const logCaptchaResult = async (
   service,
   success,
   ip = null,
-  type,
+  type = "rutine",
   scrapeDuration,
   startTime = null,
   endTime = null,
@@ -15,10 +15,10 @@ const logCaptchaResult = async (
 ) => {
   try {
     const today = moment().startOf("day").toDate(); // Fecha de hoy
-    let result = await CaptchaResult.findOne({ date: today, service });
+    let result = await CaptchaResult.findOne({ date: today, service, type });
 
     if (!result) {
-      result = new CaptchaResult({ service });
+      result = new CaptchaResult({ service, date: today });
     }
 
     if (success) {

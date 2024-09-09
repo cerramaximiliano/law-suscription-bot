@@ -3,7 +3,7 @@ const { HttpsProxyAgent } = require("https-proxy-agent");
 
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 puppeteer.use(StealthPlugin());
-const fs = require("fs");
+const fs = require('fs').promises;
 const path = require("path");
 const logger = require("../config/logger");
 const {
@@ -242,18 +242,29 @@ const captureScreenshot = async (page, cdNumber, subPath) => {
   });
 
   // Crear la carpeta de capturas de pantalla si no existe
+  logger.info(`Capture screenshot function start, path: ${subPath}`);
   const screenshotDir = path.join(__dirname, `screenshots${subPath}`);
-  if (!fs.existsSync(screenshotDir)) {
-    fs.mkdirSync(screenshotDir);
+
+  // Verificar si el directorio ya existe
+  try {
+    await fs.access(screenshotDir); // Intentar acceder al directorio
+    logger.info(`El directorio ya existe: ${screenshotDir}`);
+  } catch (error) {
+    // Si el acceso falla, creamos el directorio
+    logger.info(`El directorio no existe, creando: ${screenshotDir}`);
+    try {
+      await fs.mkdir(screenshotDir, { recursive: true }); // Crear directorios intermedios si es necesario
+    } catch (mkdirError) {
+      logger.error(`Error al crear el directorio para las capturas de pantalla: ${mkdirError.message}`);
+      throw new Error(`No se pudo crear el directorio: ${screenshotDir}`);
+    }
   }
 
   // Tomar una captura de pantalla del área visible completa
   const screenshotPath = path.join(screenshotDir, `result-${cdNumber}.png`);
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
-  logger.info(
-    `Captura de pantalla del resultado guardada en: ${screenshotPath}`
-  );
+  logger.info(`Captura de pantalla del resultado guardada en: ${screenshotPath}`);
   return screenshotPath;
 };
 

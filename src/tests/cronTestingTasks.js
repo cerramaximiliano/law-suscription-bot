@@ -4,14 +4,14 @@ const { scrapeCA } = require("../services/scrapingService");
 const logger = require("../config/logger");
 const moment = require("moment");
 const { logCaptchaResult } = require("../controllers/captchaResultController");
-const captchaServices = ["2Captcha", "capsolver", "anticaptcha"]; // Lista de servicios de CAPTCHA
+const captchaServices = ["capsolver", "2Captcha", "anticaptcha"]; // Lista de servicios de CAPTCHA
 
 let serviceErrors = {
   "2Captcha": 0,
-  "capsolver": 0,
-  "anticaptcha": 0,
+  capsolver: 0,
+  anticaptcha: 0,
 };
-const maxErrorsPerService = 20; // Umbral de errores antes de rotar servicio
+const maxErrorsPerService = 75; // Umbral de errores antes de rotar servicio
 let currentCaptchaService = captchaServices[0]; // Iniciar con el primer servicio
 
 const getNextCaptchaService = (currentService) => {
@@ -23,7 +23,9 @@ const getNextCaptchaService = (currentService) => {
 // Función para realizar el testeo de scraping
 async function testScraping(repetitions = 20) {
   try {
-    logger.info(`Iniciando testeo de scraping con ${repetitions} repeticiones.`);
+    logger.info(
+      `Iniciando testeo de scraping con ${repetitions} repeticiones.`
+    );
 
     // Obtener todos los trackings de la base de datos
     let allTrackings = await Tracking.find({});
@@ -32,11 +34,17 @@ async function testScraping(repetitions = 20) {
     // Si no hay suficientes trackings, repetir algunos hasta alcanzar el número deseado
     if (totalTrackings < repetitions) {
       // Repetir los trackings para llegar al número de repeticiones
-      allTrackings = [...allTrackings, ...allTrackings.slice(0, repetitions - totalTrackings)];
+      allTrackings = [
+        ...allTrackings,
+        ...allTrackings.slice(0, repetitions - totalTrackings),
+      ];
     } else {
       // Si hay suficientes trackings, seleccionar solo los primeros 'repetitions'
       allTrackings = allTrackings.slice(0, repetitions);
     }
+
+    // Capturar el tiempo de inicio del testeo
+    const startTime = moment();
 
     // Ejecutar scraping para cada tracking uno por uno
     for (let i = 0; i < repetitions; i++) {
@@ -46,37 +54,120 @@ async function testScraping(repetitions = 20) {
       const notificationId = null;
       const type = tracking.trackingType;
 
-      logger.info(`Iniciando scraping para el tracking ${cdNumber} (${i + 1}/${repetitions}) usando ${currentCaptchaService}.`);
+      logger.info(
+        `Iniciando scraping para el tracking ${cdNumber} (${
+          i + 1
+        }/${repetitions}) usando ${currentCaptchaService}.`
+      );
 
-      // Medir tiempo de ejecución
-      const startTime = moment();
+      // Medir tiempo de ejecución para cada scraping individual
+      const scrapeStartTime = moment();
 
       // Ejecutar scraping
-      const scrape = await scrapeCA(cdNumber, userId, notificationId, type, currentCaptchaService);
+      const scrape = await scrapeCA(
+        cdNumber,
+        userId,
+        notificationId,
+        type,
+        currentCaptchaService,
+        "test"
+      );
 
-      const endTime = moment();
-      const duration = moment.duration(endTime.diff(startTime)).asSeconds(); // Duración en segundos
+      const scrapeEndTime = moment();
+      const duration = moment
+        .duration(scrapeEndTime.diff(scrapeStartTime))
+        .asSeconds(); // Duración en segundos
 
       if (scrape && scrape.success) {
-        // Guardar los resultados en la base de datos, con tiempo de resolución y tipo "testing"
-        logger.info(`Scraping completado en ${duration} segundos para ${cdNumber}.`);
-        await logCaptchaResult(currentCaptchaService, true, scrape.ip, "testing", duration);
+        logger.info(
+          `Scraping completado en ${duration} segundos para ${cdNumber}.`
+        );
+
+        // Guardar el tiempo de inicio en el primer scraping
+        if (i === 0) {
+          await logCaptchaResult(
+            currentCaptchaService,
+            true,
+            scrape.ip,
+            "testing",
+            duration,
+            startTime
+          );
+        }
+        // Guardar el tiempo de finalización en el último scraping
+        else if (i === repetitions - 1) {
+          await logCaptchaResult(
+            currentCaptchaService,
+            true,
+            scrape.ip,
+            "testing",
+            duration,
+            null,
+            moment()
+          );
+        }
+        // Guardar resultados para los scraping intermedios
+        else {
+          await logCaptchaResult(
+            currentCaptchaService,
+            true,
+            scrape.ip,
+            "testing",
+            duration
+          );
+        }
 
         // Reiniciar el contador de errores para el servicio actual
         serviceErrors[currentCaptchaService] = 0;
       } else {
-        logger.warn(`Falló el scraping para ${cdNumber} usando ${currentCaptchaService}.`);
+        logger.warn(
+          `Falló el scraping para ${cdNumber} usando ${currentCaptchaService}.`
+        );
 
         // Aumentar el contador de errores para el servicio actual
         serviceErrors[currentCaptchaService] += 1;
 
         // Si el servicio ha excedido el límite de errores, cambiar al siguiente
         if (serviceErrors[currentCaptchaService] >= maxErrorsPerService) {
-          logger.warn(`Cambiando de servicio de CAPTCHA: ${currentCaptchaService} -> siguiente servicio`);
+          logger.warn(
+            `Cambiando de servicio de CAPTCHA: ${currentCaptchaService} -> siguiente servicio`
+          );
           currentCaptchaService = getNextCaptchaService(currentCaptchaService);
         }
 
-        await logCaptchaResult(currentCaptchaService, false, scrape.ip, type, duration);
+        // Guardar el tiempo de inicio en el primer scraping si falla
+        if (i === 0) {
+          await logCaptchaResult(
+            currentCaptchaService,
+            false,
+            scrape.ip,
+            "testing",
+            duration,
+            startTime
+          );
+        }
+        // Guardar el tiempo de finalización en el último scraping si falla
+        else if (i === repetitions - 1) {
+          await logCaptchaResult(
+            currentCaptchaService,
+            false,
+            scrape.ip,
+            "testing",
+            duration,
+            null,
+            moment()
+          );
+        }
+        // Guardar resultados para los scraping intermedios si falla
+        else {
+          await logCaptchaResult(
+            currentCaptchaService,
+            false,
+            scrape.ip,
+            "testing",
+            duration
+          );
+        }
       }
 
       logger.info(`Finalizando scraping para ${cdNumber}.`);
