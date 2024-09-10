@@ -1,4 +1,8 @@
 const { createLogger, transports, format } = require('winston');
+const fs = require('fs').promises;
+const path = require('path');
+
+const logFilePath = path.join(process.cwd(), 'src', 'logs', 'app.log');
 
 const logger = createLogger({
   level: 'info',
@@ -8,8 +12,17 @@ const logger = createLogger({
   ),
   transports: [
     new transports.Console(),
-    new transports.File({ filename: 'src/logs/app.log' })
+    new transports.File({ filename: logFilePath })
   ],
 });
 
-module.exports = logger;
+const clearLogs = async () => {
+  try {
+    await fs.truncate(logFilePath, 0);
+    logger.info('Archivo de logs limpiado correctamente.');
+  } catch (err) {
+    logger.error('Error al limpiar el archivo de logs:', err);
+  }
+};
+
+module.exports = { logger, clearLogs };

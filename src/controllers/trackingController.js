@@ -1,5 +1,5 @@
 const Tracking = require("../models/trackingModel");
-const logger = require("../config/logger");
+const { logger } = require("../config/logger");
 const moment = require("moment");
 
 const saveOrUpdateTrackingData = async (
@@ -51,6 +51,8 @@ const saveOrUpdateTrackingData = async (
         tracking.movements.sort((a, b) => b.date - a.date);
 
         tracking.lastUpdated = Date.now();
+        tracking.isVerified = true;
+        tracking.isValid = true;
       } else {
         logger.info(
           `No hay datos en la tabla para actualizar en el código: ${trackingCode}`
@@ -120,4 +122,18 @@ async function getTrackingTelegramas(userId, isCompleted) {
   }
 }
 
-module.exports = { getTrackingTelegramas, saveOrUpdateTrackingData };
+async function getUnverifiedTrackings() {
+  try {
+    const foundedTrackings = await Tracking.find({ isVerified: false });
+    if (foundedTrackings) return foundedTrackings;
+    else throw new Error("Error al buscar unverified trackings");
+  } catch (err) {
+    logger.error(`Error al obtener trackings no verificados: ${err}`);
+  }
+}
+
+module.exports = {
+  getTrackingTelegramas,
+  saveOrUpdateTrackingData,
+  getUnverifiedTrackings,
+};

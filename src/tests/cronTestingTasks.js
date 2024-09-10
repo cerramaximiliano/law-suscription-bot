@@ -1,7 +1,7 @@
 const cron = require("node-cron");
 const Tracking = require("../models/trackingModel");
 const { scrapeCA } = require("../services/scrapingService");
-const logger = require("../config/logger");
+const {logger} = require("../config/logger");
 const moment = require("moment");
 const { logCaptchaResult } = require("../controllers/captchaResultController");
 const captchaServices = ["capsolver", "2Captcha", "anticaptcha"]; // Lista de servicios de CAPTCHA

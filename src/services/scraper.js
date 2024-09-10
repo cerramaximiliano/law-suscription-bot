@@ -8,7 +8,7 @@ const path = require("path");
 const {
   saveOrUpdateTrackingData,
 } = require("../controllers/trackingController");
-const logger = require("../config/logger");
+const {logger} = require("../config/logger");
 
 const timeout = (millis) =>
   new Promise((resolve) => setTimeout(resolve, millis));

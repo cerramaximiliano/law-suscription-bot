@@ -7,7 +7,7 @@ const Tracking = require("../models/trackingModel");
 const stripe = Stripe(stripeSecretKey);
 const { getTrackingTelegramas } = require("../controllers/trackingController");
 const { scrapeCA } = require("../services/scraper");
-const logger = require("../config/logger");
+const {logger} = require("../config/logger");
 const URL_BASE = process.env.BASE_URL;
 
 const truncateText = (text, maxLength = 30) => {

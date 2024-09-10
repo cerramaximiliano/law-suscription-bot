@@ -1,5 +1,5 @@
 const AC = require("@antiadmin/anticaptchaofficial");
-const logger = require("../config/logger");
+const {logger} = require("../config/logger");
 
 AC.setAPIKey(process.env.ANTI_CAPTCHA_API_KEY);
 const captchaACSolver = async (pageUrl, siteKey) => {

@@ -7,8 +7,12 @@ const subscriptionRoutes = require("./src/routes/subscription"); // Importar las
 const successRoutes = require("./src/routes/success"); // Importar la ruta de éxito
 const webhookRoutes = require("./src/routes/webhook");
 const tracking = require("./src/routes/tracking");
-const logger = require("./src/config/logger");
-const { cronJobs } = require("./src/tasks/cronTasks");
+const { logger } = require("./src/config/logger");
+const {
+  cronJobs,
+  cronJobDeleteLogs,
+  cronJobsUnverifiedTrackings,
+} = require("./src/tasks/cronTasks");
 const { testScraping } = require("./src/tests/cronTestingTasks");
 const { scrapeCA } = require("./src/services/scrapingService");
 
@@ -51,21 +55,18 @@ app.use((req, res, next) => {
   res.status(404).sendFile(path.join(__dirname, "public/views", "404.html"));
 });
 
-//cronJobs()
-//testScraping(50)
-
-/* (async () => {
-  try {
-    const scraping = await scrapeCA();
-    console.log(scraping);
-  } catch (err) {
-    console.log(err);
-  }
-})(); */
-
 // Iniciar el servidor
-app.listen(port, () => {
-  console.log(
-    `Servidor corriendo en el puerto ${port} en modo ${process.env.NODE_ENV}`
-  );
+app.listen(port, async () => {
+  try {
+    logger.info(
+      `Servidor corriendo en el puerto ${port} en modo ${process.env.NODE_ENV}`
+    );
+    await cronJobDeleteLogs();
+    await cronJobsUnverifiedTrackings();
+    //cronJobs()
+    //testScraping(50)
+    //const scraping = await scrapeCA();
+  } catch (error) {
+    logger.error(`Error en servidor: ${error}`);
+  }
 });

@@ -5,7 +5,7 @@ const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 puppeteer.use(StealthPlugin());
 const fs = require("fs").promises;
 const path = require("path");
-const logger = require("../config/logger");
+const { logger } = require("../config/logger");
 const {
   saveOrUpdateTrackingData,
 } = require("../controllers/trackingController");
@@ -219,10 +219,14 @@ const scrapeCA = async (
       result.data = trackingResult;
     } else if (typeof tableData === "string") {
       // Si `tableData` es un texto
+      const path = "/failure";
+      const screenshotPath = await captureScreenshot(page, cdNumber, path);
+
       result.success = false;
       result.message = tableData;
       result.data = null;
     } else {
+      
       result.success = false;
       result.message = "Error inesperado en tableData";
       result.data = null;

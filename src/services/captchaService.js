@@ -1,7 +1,7 @@
 // captchaService.js
 const axios = require("axios");
 const poll = require("promise-poller").default;
-const logger = require("../config/logger");
+const {logger} = require("../config/logger");
 const { timeout, randomDelay } = require("../utils/utils");
 
 const siteDetails = {

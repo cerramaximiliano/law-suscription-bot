@@ -1,9 +1,10 @@
 const cron = require("node-cron");
 const Tracking = require("../models/trackingModel");
 const { scrapeCA } = require("../services/scrapingService");
-const logger = require("../config/logger");
+const { logger, clearLogs } = require("../config/logger");
 const moment = require("moment");
 const { logCaptchaResult } = require("../controllers/captchaResultController");
+const { getUnverifiedTrackings } = require("../controllers/trackingController");
 
 const captchaServices = ["2Captcha", "capsolver", "anticaptcha"]; // Lista de servicios de CAPTCHA
 let serviceErrors = {
@@ -74,7 +75,7 @@ async function updateTracking(
   }
 }
 
-const cronJobs = async () => {
+const cronJobsUpdateTrackings = async () => {
   cron.schedule(
     "*/5 5-23 * * 1-5",
     async () => {
@@ -116,4 +117,47 @@ const cronJobs = async () => {
   );
 };
 
-module.exports = { cronJobs };
+const cronJobsUnverifiedTrackings = async () => {
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      logger.info("Iniciando actualización de trackings no verificados");
+      const unverified = await getUnverifiedTrackings();
+
+      if (unverified.length > 0) {
+        const cdNumber = unverified[0].trackingCode;
+        logger.info(
+          `Iniciando scraping de trackings no verificados para CD ${cdNumber}`
+        );
+        const scraping = await scrapeCA(cdNumber);
+
+        if (
+          scraping.success === false &&
+          scraping.message === "No se encontraron resultados"
+        ) {
+          logger.info(
+            `No se encontraron resultados. ${cdNumber} isVerified set true, isValid set false`
+          );
+          const update = await Tracking.findByIdAndUpdate(
+            { _id: unverified[0]._id },
+            { isVerified: true, isValid: false }
+          );
+        }
+      }
+    } catch (error) {
+      logger.error("Error en cron de actualización de no verificados");
+    }
+  });
+};
+
+const cronJobDeleteLogs = async () => {
+  cron.schedule("0 0 */10 * *", async () => {
+    logger.info("Ejecutando limpieza de logs.");
+    await clearLogs();
+  });
+};
+
+module.exports = {
+  cronJobsUpdateTrackings,
+  cronJobDeleteLogs,
+  cronJobsUnverifiedTrackings,
+};

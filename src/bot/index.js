@@ -5,7 +5,7 @@ require("./middlewares")(bot);
 const trackingMiddleware = require("./middlewares");
 const Tracking = require("../models/trackingModel");
 const { scrapeCA } = require("../services/scrapingService");
-const logger = require("../config/logger");
+const {logger} = require("../config/logger");
 const Subscription = require("../models/subscriptionModel");
 const suscriptionsTopic = process.env.TOPIC_SUSCRIPTIONS;
 
