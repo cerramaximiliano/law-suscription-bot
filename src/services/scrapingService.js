@@ -119,7 +119,6 @@ const verifyRecaptcha = async (token) => {
       return false;
     }
   } catch (error) {
-    console.log("Error al verificar reCAPTCHA", error);
     logger.error("Error al verificar reCAPTCHA:", error.message);
     return false;
   }
@@ -145,12 +144,12 @@ const scrapeWithoutBrowser = async () => {
 };
 
 const scrapeCA = async (
-  cdNumber = "164278815",
+  cdNumber = "123456789",
   userId = "66c78ff7e79922bf212a7e43",
-  notificationId = "3564832",
   trackingType = "telegrama",
   captchaService = "2Captcha",
   task = "rutine",
+  alias = null
 ) => {
   let browser;
   let result = {
@@ -195,15 +194,14 @@ const scrapeCA = async (
 
     // Tomar captura de pantalla y extraer datos
     const tableData = await extractTableData(page);
-
-    if (tableData.length === 0) {
+    if (Array.isArray(tableData) && tableData.length === 0) {
       // No se encontraron resultados
       let path = "";
       task === "test" ? (path = "/test/failure") : (path = "/failure");
       const screenshotPath = await captureScreenshot(page, cdNumber, path);
       result.message =
-        "No se encontraron resultados para el número de seguimiento.";
-    } else {
+        "No se encontró la tabla ni el mensaje esperado en el sitio.";
+    } else if (Array.isArray(tableData) && tableData.length > 0) {
       // Guardar datos en la base de datos
       let path = "";
       task === "test" ? (path = "/test/success") : (path = "/success");
@@ -219,6 +217,15 @@ const scrapeCA = async (
       result.success = true;
       result.message = "Proceso completado exitosamente";
       result.data = trackingResult;
+    } else if (typeof tableData === "string") {
+      // Si `tableData` es un texto
+      result.success = false;
+      result.message = tableData;
+      result.data = null;
+    } else {
+      result.success = false;
+      result.message = "Error inesperado en tableData";
+      result.data = null;
     }
 
     logger.info(result.message);
@@ -311,21 +318,26 @@ const extractTableData = async (page) => {
     // Si no hay tabla, manejar el mensaje de "No se encontraron resultados"
     const noResultsMessage = await page.evaluate(() => {
       const alert = document.querySelector("#resultado .alert.alert-info");
-      return alert ? alert.innerText.trim() : null;
+      if (alert) {
+        let text = alert.innerText.trim();
+        // Eliminar la "x" u otros caracteres no deseados si están presentes al inicio
+        text = text.replace(/^×\s*/, ""); // Reemplaza la "x" y el espacio al inicio, si existe
+        return text;
+      }
+      return null;
     });
-
+    logger.info("Mensaje resultado:", noResultsMessage);
     if (noResultsMessage) {
       logger.info(
         "No se encontraron resultados para el número de seguimiento."
       );
+      return noResultsMessage;
     } else {
       logger.warn(
         "No se encontró la tabla ni el mensaje esperado en el sitio."
       );
+      return "No se encontró la tabla ni el mensaje esperado en el sitio.";
     }
-
-    // Retornar un arreglo vacío o algún indicativo de que no hubo resultados
-    return [];
   }
 };
 

@@ -14,6 +14,7 @@ const truncateText = (text, maxLength = 30) => {
   return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
 };
 
+
 exports.handleBotSubscription = async (ctx) => {
   const chatId = ctx.chat.id;
   const userId = ctx.from.id;
@@ -454,44 +455,6 @@ exports.handleAddNewTelegrama = async (ctx) => {
   }
 };
 
-exports.handleTrackingTelegramas = async (ctx) => {
-  const userId = ctx.from.id;
-  const trackingTelegramas = await getTrackingTelegramas(userId); // Implementar la función para obtener los datos
-
-  const elementosMsg =
-    trackingTelegramas.length > 0
-      ? trackingTelegramas.map((item) => `CD${item.trackingCode}`).join("\n")
-      : "Sin elementos";
-
-  await ctx.editMessageText(
-    `Tus telegramas/cartas seguidas:\n\n${elementosMsg}`,
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "Agregar Nuevo Telegrama/Carta",
-              callback_data: "add_new_telegrama", // Maneja el evento en handleAddNewTelegrama
-            },
-          ],
-          [
-            {
-              text: "Eliminar Seguimiento",
-              callback_data: "delete_tracking_menu", // Dirige al menú de eliminación
-            },
-          ],
-          [
-            {
-              text: "Ver Todos los Telegramas/Cartas",
-              callback_data: "view_all_telegramas",
-            },
-          ],
-          [{ text: "Volver", callback_data: "tracking_options" }],
-        ],
-      },
-    }
-  );
-};
 
 exports.handleDeleteTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
@@ -1085,20 +1048,20 @@ exports.handleTrackingTelegramas = async (ctx) => {
   const userId = ctx.from.id;
   const trackingTelegramas = await getTrackingTelegramas(userId, false); // Implementar la función para obtener los datos
 
-  // Crear el mensaje que se mostrará con los trackingCode y alias
   const elementosMsg =
-    trackingTelegramas.length > 0
-      ? trackingTelegramas
-          .map((item) => {
-            // Construir el texto con trackingCode y alias si existe
-            let displayText = `CD${item.trackingCode}`;
-            if (item.alias) {
-              displayText += ` - ${truncateText(item.alias)}`; // Agregar alias truncado si es necesario
-            }
-            return displayText;
-          })
-          .join("\n")
-      : "Sin elementos";
+  trackingTelegramas.length > 0
+    ? trackingTelegramas.map((item) => {
+        let emoji;
+        if (item.isVerified === false) {
+          emoji = '🕒'; // Si 'isVerified' es false, usa el emoji de cronómetro.
+        } else if (item.isVerified === true && item.isValid === false) {
+          emoji = '❌'; // Si 'isVerified' es true pero 'isValid' es false, usa el emoji de error.
+        } else {
+          emoji = '✅'; // Si 'isVerified' es true e 'isValid' es true, usa el emoji de check.
+        }
+        return `${emoji} CD${item.trackingCode}`;
+      }).join("\n")
+    : "Sin elementos";
 
   await ctx.editMessageText(
     `Tus telegramas/cartas seguidas:\n\n${elementosMsg}`,
@@ -1113,14 +1076,14 @@ exports.handleTrackingTelegramas = async (ctx) => {
           ],
           [
             {
-              text: "Eliminar Seguimiento",
-              callback_data: "delete_tracking_menu", // Dirige al menú de eliminación
+              text: "Archivar Seguimiento",
+              callback_data: "archive_tracking_menu", // Dirige al menú de archivado
             },
           ],
           [
             {
-              text: "Archivar Seguimiento",
-              callback_data: "archive_tracking_menu", // Dirige al menú de archivado
+              text: "Eliminar Seguimiento",
+              callback_data: "delete_tracking_menu", // Dirige al menú de eliminación
             },
           ],
           [
@@ -1135,6 +1098,7 @@ exports.handleTrackingTelegramas = async (ctx) => {
     }
   );
 };
+
 
 
 // Funciones auxiliares (implementar estas funciones para obtener y manejar los datos)

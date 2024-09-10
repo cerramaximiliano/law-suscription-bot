@@ -114,14 +114,14 @@ bot.on("text", async (ctx) => {
   // Manejo de número de CD
   if (ctx.session.waitingForCDNumber) {
     const input = ctx.message.text;
-  
+
     // Validar que el número tenga 9 dígitos seguidos opcionalmente de un texto separado por espacio
     const match = input.match(/^(\d{9})(?:\s+(.+))?$/);
-  
+
     if (match) {
       const cdNumber = match[1]; // El número de 9 dígitos
       const alias = match[2] ? match[2].trim() : null; // El texto adicional opcional
-      logger.info(`Input: cd number ${cdNumber}, alias ${alias}`)
+      logger.info(`Input: cd number ${cdNumber}, alias ${alias}`);
       try {
         // Verificar si el tracking ya existe en la base de datos
         const existingTracking = await Tracking.findOne({
@@ -129,7 +129,7 @@ bot.on("text", async (ctx) => {
           trackingCode: cdNumber,
           trackingType: "carta_documento",
         });
-  
+
         if (existingTracking) {
           // Si el tracking ya existe, no hacer scraping y enviar un mensaje
           await editMessageWithButtons(
@@ -165,22 +165,24 @@ bot.on("text", async (ctx) => {
               ],
             ]
           );
-  
+
           const scrapingResult = await scrapeCA(
             cdNumber,
             ctx.from.id,
-            alias || "", // Usar alias si está presente, de lo contrario una cadena vacía
-            "carta_documento"
+            "carta_documento",
+            "2Captcha",
+            "user add new tracking",
+            alias
           );
           console.log(scrapingResult);
           if (scrapingResult.success) {
             logger.info(
               `Tracking guardado por scraping para el usuario ${ctx.from.id} con código ${cdNumber}.`
             );
-  
+
             await editMessageWithButtons(
               ctx,
-              `Número de CD (${cdNumber}) recibido correctamente.`,
+              `Número de CD (${cdNumber}) verificado y guardado correctamente.`,
               [
                 [{ text: "Agregar Otro", callback_data: "add_new_telegrama" }],
                 [
@@ -201,29 +203,69 @@ bot.on("text", async (ctx) => {
             logger.info(
               `No se encontraron resultados para el número de CD (${cdNumber}).`
             );
-  
-            await editMessageWithButtons(
-              ctx,
-              `No se encontraron resultados para el número de CD (${cdNumber}).`,
-              [
-                [{ text: "Agregar Otro", callback_data: "add_new_telegrama" }],
+            if (scrapingResult.message === "No se encontraron resultados") {
+              await editMessageWithButtons(
+                ctx,
+                `No se encontraron resultados para el número de CD (${cdNumber}). Ingrese un código válido.`,
                 [
-                  {
-                    text: "Ver Seguimientos",
-                    callback_data: "view_all_telegramas",
-                  },
-                ],
+                  [
+                    {
+                      text: "Agregar Otro",
+                      callback_data: "add_new_telegrama",
+                    },
+                  ],
+                  [
+                    {
+                      text: "Ver Seguimientos",
+                      callback_data: "view_all_telegramas",
+                    },
+                  ],
+                  [
+                    {
+                      text: "Volver al Menú Principal",
+                      callback_data: "back_to_main",
+                    },
+                  ],
+                ]
+              );
+            } else {
+              await editMessageWithButtons(
+                ctx,
+                `No se puso verificar el código CD (${cdNumber}). Se ha guardado el código para verificarlo más tarde.`,
                 [
-                  {
-                    text: "Volver al Menú Principal",
-                    callback_data: "back_to_main",
-                  },
-                ],
-              ]
-            );
+                  [
+                    {
+                      text: "Agregar Otro",
+                      callback_data: "add_new_telegrama",
+                    },
+                  ],
+                  [
+                    {
+                      text: "Ver Seguimientos",
+                      callback_data: "view_all_telegramas",
+                    },
+                  ],
+                  [
+                    {
+                      text: "Volver al Menú Principal",
+                      callback_data: "back_to_main",
+                    },
+                  ],
+                ]
+              );
+              const saveUnverifiedTracking = await Tracking.create({
+                userId: ctx.from.id,
+                trackingCode: cdNumber,
+                trackingType: "carta_documento",
+                isVerified: false,
+                isValid: false,
+                alias: alias,
+              });
+              logger.info(saveUnverifiedTracking);
+            }
           }
         }
-  
+
         // Eliminar el mensaje que contiene el número de 9 dígitos ingresado por el usuario
         setTimeout(() => {
           ctx.deleteMessage(ctx.message.message_id).catch((err) => {
@@ -252,7 +294,7 @@ bot.on("text", async (ctx) => {
           ]
         );
       }
-  
+
       // Resetea el estado
       ctx.session.waitingForCDNumber = false;
     } else {
@@ -269,7 +311,6 @@ bot.on("text", async (ctx) => {
       }, 3000);
     }
   }
-  
 
   // Manejo de alias
   else if (ctx.session.waitingForAlias) {
@@ -459,7 +500,9 @@ bot.action(/^send_screenshot_\w+$/, async (ctx) => {
       const filePath = tracking.screenshots[0].path;
       await ctx.replyWithPhoto({ source: filePath });
     } else {
-      const errorMessage = await ctx.reply("No se encontró la captura de pantalla.");
+      const errorMessage = await ctx.reply(
+        "No se encontró la captura de pantalla."
+      );
 
       // Eliminar el mensaje de error después de 5 segundos
       setTimeout(() => {
@@ -483,7 +526,6 @@ bot.action(/^send_screenshot_\w+$/, async (ctx) => {
     }, 5000); // 5000 milisegundos = 5 segundos
   }
 });
-
 
 bot.action(/^add_alias_\w+$/, async (ctx) => {
   await require("../controllers/subscriptionBotController").handleAddAlias(ctx);

@@ -19,6 +19,15 @@ const trackingSchema = new Schema({
     enum: ["telegrama", "carta_documento", "otro"], // Diferentes tipos de seguimiento
     required: true,
   },
+  isVerified: {
+    type: Boolean,
+    required: true,
+    default: true,
+  },
+  isValid: {
+    type: Boolean,
+    default: true,
+  },
   alias: {
     type: String,
   },
