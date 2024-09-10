@@ -9,7 +9,6 @@ const logger = require("../config/logger");
 const Subscription = require("../models/subscriptionModel");
 const suscriptionsTopic = process.env.TOPIC_SUSCRIPTIONS;
 
-
 async function editMessageWithButtons(ctx, text, buttons) {
   try {
     await ctx.telegram.editMessageText(
@@ -24,7 +23,11 @@ async function editMessageWithButtons(ctx, text, buttons) {
       }
     );
   } catch (error) {
-    if (error.response && error.response.error_code === 400 && error.response.description.includes("message is not modified")) {
+    if (
+      error.response &&
+      error.response.error_code === 400 &&
+      error.response.description.includes("message is not modified")
+    ) {
       logger.warn("El mensaje no se modificó porque el contenido es el mismo.");
     } else {
       logger.error("Error al editar el mensaje:", error);
@@ -48,7 +51,7 @@ bot.use((ctx, next) => {
 });
 
 // Comando /start
-bot.start(  async (ctx) => {
+bot.start(async (ctx) => {
   const BASE_URL = process.env.BASE_URL;
   const chatId = ctx.chat.id;
   const userId = ctx.from.id;
@@ -58,13 +61,13 @@ bot.start(  async (ctx) => {
     firstName
   )}&chatid=${chatId}`;
 
-  const subscription = await Subscription.findOne({userId: userId})
+  const subscription = await Subscription.findOne({ userId: userId });
 
   if (ctx.chat.type === "private") {
     // Mensaje cuando el bot es iniciado en una conversación privada
-    if ( subscription ){
+    if (subscription) {
       require("../controllers/subscriptionBotController").handleBotAccess(ctx);
-    }else{
+    } else {
       ctx.reply(
         `¡Hola! Este bot está diseñado para suscripciones dentro de un grupo.`,
         {
@@ -85,7 +88,6 @@ bot.start(  async (ctx) => {
         }
       );
     }
-    
   } else if (
     ctx.message &&
     ctx.message.message_thread_id == suscriptionsTopic
@@ -109,11 +111,17 @@ bot.on("text", async (ctx) => {
     ctx.session = {}; // Inicializa la sesión si no está definida
   }
 
+  // Manejo de número de CD
   if (ctx.session.waitingForCDNumber) {
-    const cdNumber = ctx.message.text;
-
-    // Validar que el número tenga 9 dígitos
-    if (/^\d{9}$/.test(cdNumber)) {
+    const input = ctx.message.text;
+  
+    // Validar que el número tenga 9 dígitos seguidos opcionalmente de un texto separado por espacio
+    const match = input.match(/^(\d{9})(?:\s+(.+))?$/);
+  
+    if (match) {
+      const cdNumber = match[1]; // El número de 9 dígitos
+      const alias = match[2] ? match[2].trim() : null; // El texto adicional opcional
+      logger.info(`Input: cd number ${cdNumber}, alias ${alias}`)
       try {
         // Verificar si el tracking ya existe en la base de datos
         const existingTracking = await Tracking.findOne({
@@ -121,7 +129,7 @@ bot.on("text", async (ctx) => {
           trackingCode: cdNumber,
           trackingType: "carta_documento",
         });
-
+  
         if (existingTracking) {
           // Si el tracking ya existe, no hacer scraping y enviar un mensaje
           await editMessageWithButtons(
@@ -157,19 +165,19 @@ bot.on("text", async (ctx) => {
               ],
             ]
           );
-
+  
           const scrapingResult = await scrapeCA(
             cdNumber,
             ctx.from.id,
-            "",
+            alias || "", // Usar alias si está presente, de lo contrario una cadena vacía
             "carta_documento"
           );
-          console.log(scrapingResult)
+          console.log(scrapingResult);
           if (scrapingResult.success) {
             logger.info(
               `Tracking guardado por scraping para el usuario ${ctx.from.id} con código ${cdNumber}.`
             );
-
+  
             await editMessageWithButtons(
               ctx,
               `Número de CD (${cdNumber}) recibido correctamente.`,
@@ -190,8 +198,10 @@ bot.on("text", async (ctx) => {
               ]
             );
           } else {
-            logger.info(`No se encontraron resultados para el número de CD (${cdNumber}).`);
-
+            logger.info(
+              `No se encontraron resultados para el número de CD (${cdNumber}).`
+            );
+  
             await editMessageWithButtons(
               ctx,
               `No se encontraron resultados para el número de CD (${cdNumber}).`,
@@ -213,7 +223,7 @@ bot.on("text", async (ctx) => {
             );
           }
         }
-
+  
         // Eliminar el mensaje que contiene el número de 9 dígitos ingresado por el usuario
         setTimeout(() => {
           ctx.deleteMessage(ctx.message.message_id).catch((err) => {
@@ -242,7 +252,7 @@ bot.on("text", async (ctx) => {
           ]
         );
       }
-
+  
       // Resetea el estado
       ctx.session.waitingForCDNumber = false;
     } else {
@@ -257,6 +267,78 @@ bot.on("text", async (ctx) => {
           logger.error("Error al eliminar el mensaje del usuario:", err);
         });
       }, 3000);
+    }
+  }
+  
+
+  // Manejo de alias
+  else if (ctx.session.waitingForAlias) {
+    const alias = ctx.message.text;
+    const trackingId = ctx.session.trackingIdForAlias;
+
+    try {
+      // Actualizar el documento del tracking con el alias proporcionado
+      const tracking = await Tracking.findByIdAndUpdate(trackingId, {
+        alias: alias,
+      });
+      const trackingCode = tracking.trackingCode;
+      // Eliminar el mensaje ingresado por el usuario (que contiene el alias)
+      setTimeout(() => {
+        ctx.deleteMessage(ctx.message.message_id).catch((err) => {
+          console.error(
+            "Error al eliminar el mensaje ingresado por el usuario:",
+            err
+          );
+        });
+      }, 5000); // 5000 milisegundos = 5 segundos
+
+      // Verificar que messageIdToEdit tenga un valor válido
+      if (ctx.session.messageIdToEdit) {
+        await ctx.telegram.editMessageText(
+          ctx.chat.id,
+          ctx.session.messageIdToEdit, // El mensaje que queremos editar
+          undefined,
+          `Alias "${alias}" agregado exitosamente para la CD ${trackingCode}.`,
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "Volver",
+                    callback_data: `view_tracking_movements_${trackingId}`,
+                  },
+                ],
+              ],
+            },
+          }
+        );
+      } else {
+        // Si no hay messageIdToEdit, responde con un nuevo mensaje
+        const sentMessage = await ctx.reply(
+          `Alias "${alias}" agregado exitosamente para la CD ${trackingId}.`,
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "Volver",
+                    callback_data: `view_tracking_movements_${trackingId}`,
+                  },
+                ],
+              ],
+            },
+          }
+        );
+      }
+
+      // Restablecer el estado de la sesión
+      ctx.session.waitingForAlias = false;
+      ctx.session.trackingIdForAlias = null;
+    } catch (error) {
+      console.error("Error al guardar el alias:", error);
+      await ctx.reply(
+        "Hubo un problema al guardar el alias. Intenta nuevamente."
+      );
     }
   }
 });
@@ -356,14 +438,17 @@ bot.action("add_carta_documento", async (ctx) => {
 
 // Acción para mostrar el menú de archivado
 bot.action("archive_tracking_menu", async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleArchiveTrackingMenu(ctx);
+  await require("../controllers/subscriptionBotController").handleArchiveTrackingMenu(
+    ctx
+  );
 });
 
 // Acción para archivar un seguimiento específico
 bot.action(/^archive_tracking_\w+$/, async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleArchiveTracking(ctx);
+  await require("../controllers/subscriptionBotController").handleArchiveTracking(
+    ctx
+  );
 });
-
 
 bot.action(/^send_screenshot_\w+$/, async (ctx) => {
   const trackingId = ctx.match.input.split("_").pop();
@@ -374,12 +459,34 @@ bot.action(/^send_screenshot_\w+$/, async (ctx) => {
       const filePath = tracking.screenshots[0].path;
       await ctx.replyWithPhoto({ source: filePath });
     } else {
-      await ctx.reply("No se encontró la captura de pantalla.");
+      const errorMessage = await ctx.reply("No se encontró la captura de pantalla.");
+
+      // Eliminar el mensaje de error después de 5 segundos
+      setTimeout(() => {
+        ctx.deleteMessage(errorMessage.message_id).catch((err) => {
+          console.error("Error al eliminar el mensaje de error:", err);
+        });
+      }, 5000); // 5000 milisegundos = 5 segundos
     }
   } catch (error) {
-    console.error("Error al enviar la imagen:", error);
-    await ctx.reply("Hubo un problema al enviar la imagen. Por favor, intenta nuevamente.");
+    logger.error("Error al enviar la imagen:", error);
+
+    const errorMessage = await ctx.reply(
+      "Hubo un problema al enviar la imagen. Por favor, intenta nuevamente más tarde."
+    );
+
+    // Eliminar el mensaje de error después de 5 segundos
+    setTimeout(() => {
+      ctx.deleteMessage(errorMessage.message_id).catch((err) => {
+        console.error("Error al eliminar el mensaje de error:", err);
+      });
+    }, 5000); // 5000 milisegundos = 5 segundos
   }
+});
+
+
+bot.action(/^add_alias_\w+$/, async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleAddAlias(ctx);
 });
 
 bot.catch((err, ctx) => {

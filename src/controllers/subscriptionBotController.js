@@ -10,6 +10,10 @@ const { scrapeCA } = require("../services/scraper");
 const logger = require("../config/logger");
 const URL_BASE = process.env.BASE_URL;
 
+const truncateText = (text, maxLength = 30) => {
+  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+};
+
 exports.handleBotSubscription = async (ctx) => {
   const chatId = ctx.chat.id;
   const userId = ctx.from.id;
@@ -492,6 +496,7 @@ exports.handleTrackingTelegramas = async (ctx) => {
 exports.handleDeleteTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
   const trackingTelegramas = await getTrackingTelegramas(userId, false); // Obtener los datos
+
   // Verificar si hay elementos para eliminar
   if (trackingTelegramas.length === 0) {
     await ctx.editMessageText("No tienes seguimientos activos para eliminar.", {
@@ -504,13 +509,21 @@ exports.handleDeleteTrackingMenu = async (ctx) => {
     return;
   }
 
-  // Crear botones para cada elemento de seguimiento
-  const buttons = trackingTelegramas.map((item) => [
-    {
-      text: `CD${item.trackingCode}`,
-      callback_data: `delete_tracking_${item._id}`, // Usamos el ID del elemento para identificarlo
-    },
-  ]);
+  // Crear botones para cada elemento de seguimiento con trackingCode y alias
+  const buttons = trackingTelegramas.map((item) => {
+    // Construir el texto con trackingCode y alias si existe
+    let displayText = `CD${item.trackingCode}`;
+    if (item.alias) {
+      displayText += ` - ${truncateText(item.alias)}`; // Agregar alias truncado si es necesario
+    }
+
+    return [
+      {
+        text: displayText, // Mostrar el trackingCode junto con el alias
+        callback_data: `delete_tracking_${item._id}`, // Usamos el ID del elemento para identificarlo
+      },
+    ];
+  });
 
   // Agregar el botón de "Volver"
   buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
@@ -521,6 +534,7 @@ exports.handleDeleteTrackingMenu = async (ctx) => {
     },
   });
 };
+
 
 exports.handleDeleteTracking = async (ctx) => {
   const trackingId = ctx.update.callback_query.data.split("_").pop(); // Obtener el ID del seguimiento desde el callback_data
@@ -577,8 +591,9 @@ exports.handleAddCartaDocumento = async (ctx) => {
 
     // Envía un mensaje solicitando el número de CD de 9 dígitos y guarda el ID del mensaje
     const sentMessage = await ctx.editMessageText(
-      "Escriba el número de CD de 9 dígitos:",
+      "Escriba el *número de CD* de 9 dígitos, luego agregue un espacio y un *alias* si lo desea:",
       {
+        parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
             [
@@ -595,7 +610,7 @@ exports.handleAddCartaDocumento = async (ctx) => {
     // Configura el bot para esperar la entrada del usuario
     ctx.session.waitingForCDNumber = true;
   } catch (error) {
-    console.error("Error al solicitar el número de CD:", error);
+    logger.error("Error al solicitar el número de CD:", error);
     ctx.reply(
       "Hubo un problema al solicitar el número de CD. Intenta nuevamente."
     );
@@ -818,12 +833,20 @@ exports.handleViewAllTelegramas = async (ctx) => {
     }
 
     // Crear botones para cada telegrama/carta
-    const buttons = trackingTelegramas.map((item) => [
-      {
-        text: `CD${item.trackingCode}`,
-        callback_data: `view_tracking_movements_${item._id}`, // Usamos el ID del elemento para identificarlo
-      },
-    ]);
+    const buttons = trackingTelegramas.map((item) => {
+      // Construir el texto del botón: CD + trackingCode y alias si existe
+      let buttonText = `CD${item.trackingCode}`;
+      if (item.alias) {
+        buttonText += ` - ${truncateText(item.alias)}`; // Agregar alias y truncar si es necesario
+      }
+
+      return [
+        {
+          text: buttonText,
+          callback_data: `view_tracking_movements_${item._id}`, // Usamos el ID del elemento para identificarlo
+        },
+      ];
+    });
 
     // Agregar el botón de "Volver"
     buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
@@ -852,11 +875,13 @@ exports.handleViewAllTelegramas = async (ctx) => {
   }
 };
 
+
 exports.handleViewTrackingMovements = async (ctx) => {
   try {
     const trackingId = ctx.update.callback_query.data.split("_").pop();
     const tracking = await Tracking.findById(trackingId);
 
+    //const trackingCode = tracking.trackingCode
     if (!tracking) {
       await ctx.editMessageText(
         "No se encontró el seguimiento. Por favor, intenta nuevamente.",
@@ -886,11 +911,12 @@ exports.handleViewTrackingMovements = async (ctx) => {
         .join("\n\n");
     }
 
-    // Editar el mensaje para mostrar los movimientos y agregar el botón para enviar la imagen
+    // Editar el mensaje para mostrar los movimientos y agregar los botones
     await ctx.editMessageText(message, {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
+          [{ text: "Agregar alias", callback_data: `add_alias_${trackingId}` }],
           [{ text: "Enviar Captura de Pantalla", callback_data: `send_screenshot_${trackingId}` }],
           [{ text: "Volver", callback_data: "view_all_telegramas" }],
         ],
@@ -910,6 +936,40 @@ exports.handleViewTrackingMovements = async (ctx) => {
     );
   }
 };
+
+exports.handleAddAlias = async (ctx) => {
+  const trackingId = ctx.update.callback_query.data.split("_").pop();
+
+  try {
+    // Buscar el documento de seguimiento
+    const tracking = await Tracking.findById(trackingId);
+    const trackingCode = tracking.trackingCode;
+
+    // Envía el mensaje solicitando el alias y guarda el ID del mensaje
+    const sentMessage = await ctx.editMessageText(
+      `Escriba un alias para CD ${trackingCode}:`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: `view_tracking_movements_${trackingId}` }],
+          ],
+        },
+      }
+    );
+
+    // Guarda el ID del mensaje para editarlo más tarde
+    ctx.session.messageIdToEdit = sentMessage.message_id;
+
+    // Configura el bot para esperar el alias
+    ctx.session.waitingForAlias = true;
+    ctx.session.trackingIdForAlias = trackingId;
+  } catch (error) {
+    console.error("Error al solicitar el alias:", error);
+    await ctx.reply("Hubo un problema al solicitar el alias. Intenta nuevamente.");
+  }
+};
+
+
 
 
 
@@ -934,7 +994,7 @@ exports.handleCompleteTracking = async (ctx) => {
 exports.handleArchiveTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
   const trackingTelegramas = await getTrackingTelegramas(userId, false); // Obtener los datos
-  console.log(trackingTelegramas);
+
   // Verificar si hay elementos para archivar
   if (trackingTelegramas.length === 0) {
     await ctx.editMessageText("No tienes seguimientos activos para archivar.", {
@@ -947,13 +1007,21 @@ exports.handleArchiveTrackingMenu = async (ctx) => {
     return;
   }
 
-  // Crear botones para cada elemento de seguimiento
-  const buttons = trackingTelegramas.map((item) => [
-    {
-      text: `CD${item.trackingCode}`,
-      callback_data: `archive_tracking_${item._id}`, // Usamos el ID del elemento para identificarlo
-    },
-  ]);
+  // Crear botones para cada elemento de seguimiento con trackingCode y alias
+  const buttons = trackingTelegramas.map((item) => {
+    // Construir el texto con trackingCode y alias si existe
+    let displayText = `CD${item.trackingCode}`;
+    if (item.alias) {
+      displayText += ` - ${truncateText(item.alias)}`; // Agregar alias truncado si es necesario
+    }
+
+    return [
+      {
+        text: displayText, // Mostrar el trackingCode junto con el alias
+        callback_data: `archive_tracking_${item._id}`, // Usamos el ID del elemento para identificarlo
+      },
+    ];
+  });
 
   // Agregar el botón de "Volver"
   buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
@@ -964,6 +1032,7 @@ exports.handleArchiveTrackingMenu = async (ctx) => {
     },
   });
 };
+
 
 exports.handleArchiveTracking = async (ctx) => {
   const trackingId = ctx.update.callback_query.data.split("_").pop(); // Obtener el ID del seguimiento desde el callback_data
@@ -1016,9 +1085,19 @@ exports.handleTrackingTelegramas = async (ctx) => {
   const userId = ctx.from.id;
   const trackingTelegramas = await getTrackingTelegramas(userId, false); // Implementar la función para obtener los datos
 
+  // Crear el mensaje que se mostrará con los trackingCode y alias
   const elementosMsg =
     trackingTelegramas.length > 0
-      ? trackingTelegramas.map((item) => `CD${item.trackingCode}`).join("\n")
+      ? trackingTelegramas
+          .map((item) => {
+            // Construir el texto con trackingCode y alias si existe
+            let displayText = `CD${item.trackingCode}`;
+            if (item.alias) {
+              displayText += ` - ${truncateText(item.alias)}`; // Agregar alias truncado si es necesario
+            }
+            return displayText;
+          })
+          .join("\n")
       : "Sin elementos";
 
   await ctx.editMessageText(
@@ -1056,6 +1135,7 @@ exports.handleTrackingTelegramas = async (ctx) => {
     }
   );
 };
+
 
 // Funciones auxiliares (implementar estas funciones para obtener y manejar los datos)
 async function getTrackingCausas(userId) {

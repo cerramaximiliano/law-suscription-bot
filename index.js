@@ -10,6 +10,7 @@ const tracking = require("./src/routes/tracking");
 const logger = require("./src/config/logger");
 const { cronJobs } = require("./src/tasks/cronTasks");
 const { testScraping } = require("./src/tests/cronTestingTasks");
+const { scrapeCA } = require("./src/services/scrapingService");
 
 const app = express();
 
@@ -52,7 +53,7 @@ app.use((req, res, next) => {
 
 
 //cronJobs()
-testScraping(50)
+//testScraping(50)
 
 
 // Iniciar el servidor

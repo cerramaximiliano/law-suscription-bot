@@ -5,26 +5,29 @@ const moment = require("moment");
 const saveOrUpdateTrackingData = async (
   trackingCode,
   userId,
-  notificationId,
   tableData,
   screenshotPath,
-  trackingType
+  trackingType,
+  alias
 ) => {
   try {
     let tracking = await Tracking.findOne({ trackingCode, userId });
-    let operation = 'none';
+    let operation = "none";
 
     if (tracking) {
       logger.info(`Actualizando el tracking para el código: ${trackingCode}`);
-      operation = 'update';
-      
+      operation = "update";
+
       if (tableData && tableData.length > 0) {
         logger.info(
           `Hay datos en la tabla para actualizar en el código: ${trackingCode}`
         );
-        
+
         tableData.forEach((movement) => {
-          const movementDate = moment(movement.date, "DD-MM-YYYY HH:mm").toDate();
+          const movementDate = moment(
+            movement.date,
+            "DD-MM-YYYY HH:mm"
+          ).toDate();
           const exists = tracking.movements.some(
             (m) =>
               m.date.getTime() === movementDate.getTime() &&
@@ -65,12 +68,12 @@ const saveOrUpdateTrackingData = async (
       logger.info("Datos de tracking actualizados correctamente.");
     } else {
       logger.info(`Creando un nuevo tracking para el código: ${trackingCode}`);
-      operation = 'create';
+      operation = "create";
 
       tracking = await Tracking.create({
         userId,
-        notificationId,
         trackingCode,
+        alias,
         trackingType,
         movements: tableData.map((movement) => ({
           date: moment(movement.date, "DD-MM-YYYY HH:mm").toDate(),
@@ -92,7 +95,7 @@ const saveOrUpdateTrackingData = async (
 
     return {
       operation,
-      tracking
+      tracking,
     };
   } catch (error) {
     logger.error("Error al guardar o actualizar los datos de tracking:", error);
@@ -100,15 +103,13 @@ const saveOrUpdateTrackingData = async (
   }
 };
 
-
-
 async function getTrackingTelegramas(userId, isCompleted) {
   try {
     // Buscar en la colección Tracking todos los documentos que coincidan con el userId y tengan un trackingType relacionado a telegramas/cartas documento
     const trackingTelegramas = await Tracking.find({
       userId: userId,
       trackingType: "carta_documento",
-      isCompleted
+      isCompleted,
     });
 
     // Si no encuentra nada, retornar un array vacío

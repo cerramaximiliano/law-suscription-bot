@@ -3,7 +3,7 @@ const { HttpsProxyAgent } = require("https-proxy-agent");
 
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 puppeteer.use(StealthPlugin());
-const fs = require('fs').promises;
+const fs = require("fs").promises;
 const path = require("path");
 const logger = require("../config/logger");
 const {
@@ -150,7 +150,7 @@ const scrapeCA = async (
   notificationId = "3564832",
   trackingType = "telegrama",
   captchaService = "2Captcha",
-  task = "rutine"
+  task = "rutine",
 ) => {
   let browser;
   let result = {
@@ -211,10 +211,10 @@ const scrapeCA = async (
       const trackingResult = await saveOrUpdateTrackingData(
         cdNumber,
         userId,
-        notificationId,
         tableData,
         screenshotPath,
-        trackingType
+        trackingType,
+        alias
       );
       result.success = true;
       result.message = "Proceso completado exitosamente";
@@ -255,7 +255,9 @@ const captureScreenshot = async (page, cdNumber, subPath) => {
     try {
       await fs.mkdir(screenshotDir, { recursive: true }); // Crear directorios intermedios si es necesario
     } catch (mkdirError) {
-      logger.error(`Error al crear el directorio para las capturas de pantalla: ${mkdirError.message}`);
+      logger.error(
+        `Error al crear el directorio para las capturas de pantalla: ${mkdirError.message}`
+      );
       throw new Error(`No se pudo crear el directorio: ${screenshotDir}`);
     }
   }
@@ -264,7 +266,9 @@ const captureScreenshot = async (page, cdNumber, subPath) => {
   const screenshotPath = path.join(screenshotDir, `result-${cdNumber}.png`);
   await page.screenshot({ path: screenshotPath, fullPage: true });
 
-  logger.info(`Captura de pantalla del resultado guardada en: ${screenshotPath}`);
+  logger.info(
+    `Captura de pantalla del resultado guardada en: ${screenshotPath}`
+  );
   return screenshotPath;
 };
 

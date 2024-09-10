@@ -19,6 +19,9 @@ const trackingSchema = new Schema({
     enum: ["telegrama", "carta_documento", "otro"], // Diferentes tipos de seguimiento
     required: true,
   },
+  alias: {
+    type: String,
+  },
   lastScraped: { type: Date },
   notified: { type: Boolean, default: false },
   movements: [
