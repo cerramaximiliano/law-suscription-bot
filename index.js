@@ -1,20 +1,13 @@
 const express = require("express");
 const path = require("path");
 const mongoose = require("mongoose");
-const { botToken, port, mongoUri } = require("./config/env");
+const { port, mongoUri } = require("./config/env");
 const bot = require("./src/bot"); // Importar la lógica del bot
 const subscriptionRoutes = require("./src/routes/subscription"); // Importar las rutas de suscripción
 const successRoutes = require("./src/routes/success"); // Importar la ruta de éxito
 const webhookRoutes = require("./src/routes/webhook");
 const tracking = require("./src/routes/tracking");
 const { logger } = require("./src/config/logger");
-const {
-  cronJobs,
-  cronJobDeleteLogs,
-  cronJobsUnverifiedTrackings,
-} = require("./src/tasks/cronTasks");
-const { testScraping } = require("./src/tests/cronTestingTasks");
-const { scrapeCA } = require("./src/services/scrapingService");
 
 const app = express();
 
@@ -61,11 +54,6 @@ app.listen(port, async () => {
     logger.info(
       `Servidor corriendo en el puerto ${port} en modo ${process.env.NODE_ENV}`
     );
-    await cronJobDeleteLogs();
-    await cronJobsUnverifiedTrackings();
-    //cronJobs()
-    //testScraping(50)
-    //const scraping = await scrapeCA();
   } catch (error) {
     logger.error(`Error en servidor: ${error}`);
   }
