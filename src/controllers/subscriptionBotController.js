@@ -8,11 +8,9 @@ const stripe = Stripe(stripeSecretKey);
 const { getTrackingTelegramas } = require("../controllers/trackingController");
 const { scrapeCA } = require("../services/scraper");
 const {logger} = require("../config/logger");
+const { truncateText } = require("../utils/format");
 const URL_BASE = process.env.BASE_URL;
 
-const truncateText = (text, maxLength = 30) => {
-  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
-};
 
 
 exports.handleBotSubscription = async (ctx) => {
@@ -413,7 +411,7 @@ exports.handleAddNewTelegrama = async (ctx) => {
     // Verificar si se ha alcanzado el límite de 10 registros activos
     if (activeTrackingsCount >= 10) {
       await ctx.editMessageText(
-        "Has alcanzado el límite de 10 seguimientos activos. Elimina un seguimiento  para agregar uno nuevo.",
+        "Has alcanzado el límite de 10 seguimientos activos. Elimina o archiva un seguimiento  para agregar uno nuevo.",
         {
           reply_markup: {
             inline_keyboard: [
@@ -704,23 +702,7 @@ exports.handleNewTracking = async (ctx) => {
     // Verificar si el usuario ha alcanzado el límite de 10 seguimientos activos
     if (activeTrackings >= 10) {
       return ctx.reply(
-        "Has alcanzado el límite de 10 seguimientos activos. Elimina un seguimiento existente para agregar uno nuevo."
-      );
-    }
-
-    try {
-      await ctx.reply(
-        "Verificando la existencia del tracking, esto puede tardar unos minutos..."
-      );
-      const scrapingResult = await scrapeCA(
-        trackingCode,
-        userId,
-        notificationId,
-        trackingType
-      );
-    } catch (err) {
-      return ctx.reply(
-        "No se pudo verificar el tracking. Asegúrate de que el código es correcto e inténtalo de nuevo."
+        "Has alcanzado el límite de 10 seguimientos activos. Elimina o archiva un seguimiento existente para agregar uno nuevo."
       );
     }
 
@@ -736,7 +718,7 @@ exports.handleNewTracking = async (ctx) => {
     await newTracking.save();
 
     // Responder al usuario
-    ctx.reply("Nuevo seguimiento agregado exitosamente.");
+    ctx.reply("Nuevo seguimiento agregado exitosamente. En unos minutos se verificará la validez del mismo.");
   } catch (error) {
     console.error("Error al agregar el seguimiento:", error);
     ctx.reply("Hubo un problema al agregar el seguimiento.");
@@ -1048,23 +1030,38 @@ exports.handleTrackingTelegramas = async (ctx) => {
   const userId = ctx.from.id;
   const trackingTelegramas = await getTrackingTelegramas(userId, false); // Implementar la función para obtener los datos
 
+  const maxAliasLength = 15; // Longitud máxima permitida para el alias
+
   const elementosMsg =
-  trackingTelegramas.length > 0
-    ? trackingTelegramas.map((item) => {
-        let emoji;
-        if (item.isVerified === false) {
-          emoji = '🕒'; // Si 'isVerified' es false, usa el emoji de cronómetro.
-        } else if (item.isVerified === true && item.isValid === false) {
-          emoji = '❌'; // Si 'isVerified' es true pero 'isValid' es false, usa el emoji de error.
-        } else {
-          emoji = '✅'; // Si 'isVerified' es true e 'isValid' es true, usa el emoji de check.
-        }
-        return `${emoji} CD${item.trackingCode}`;
-      }).join("\n")
-    : "Sin elementos";
+    trackingTelegramas.length > 0
+      ? trackingTelegramas
+          .map((item) => {
+            let emoji;
+            if (item.isVerified === false) {
+              emoji = '🕒'; // Si 'isVerified' es false, usa el emoji de cronómetro.
+            } else if (item.isVerified === true && item.isValid === false) {
+              emoji = '❌'; // Si 'isVerified' es true pero 'isValid' es false, usa el emoji de error.
+            } else {
+              emoji = '✅'; // Si 'isVerified' es true e 'isValid' es true, usa el emoji de check.
+            }
+
+            // Truncar alias si excede la longitud máxima
+            const alias = item.alias
+              ? item.alias.length > maxAliasLength
+                ? item.alias.substring(0, maxAliasLength) + '...'
+                : item.alias
+              : '';
+
+            return `${emoji} CD${item.trackingCode}${alias ? ` (${alias})` : ''}`;
+          })
+          .join("\n")
+      : "Sin elementos";
+
+  // Leyenda explicativa de los emojis
+  const leyendaEmojis = `\n\n✅ Valido\n❌ Inválido\n🕒 Validación pendiente`;
 
   await ctx.editMessageText(
-    `Tus telegramas/cartas seguidas:\n\n${elementosMsg}`,
+    `Tus telegramas/cartas seguidas:\n\n${elementosMsg}${leyendaEmojis}`,
     {
       reply_markup: {
         inline_keyboard: [

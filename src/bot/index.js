@@ -155,7 +155,7 @@ bot.on("text", async (ctx) => {
           // Si el tracking no existe, proceder con el scraping
           await editMessageWithButtons(
             ctx,
-            "Verificando la existencia del tracking, esto puede tardar unos minutos...",
+            "Nuevo seguimiento agregado exitosamente. En unos minutos se verificará la validez del mismo.",
             [
               [
                 {
@@ -166,104 +166,15 @@ bot.on("text", async (ctx) => {
             ]
           );
 
-          const scrapingResult = await scrapeCA(
-            cdNumber,
-            ctx.from.id,
-            "carta_documento",
-            "2Captcha",
-            "user add new tracking",
-            alias
-          );
-          console.log(scrapingResult);
-          if (scrapingResult.success) {
-            logger.info(
-              `Tracking guardado por scraping para el usuario ${ctx.from.id} con código ${cdNumber}.`
-            );
+          const saveUnverifiedTracking = await Tracking.create({
+            userId: ctx.from.id,
+            trackingCode: cdNumber,
+            trackingType: "carta_documento",
+            isVerified: false,
+            isValid: false,
+            alias: alias,
+          });
 
-            await editMessageWithButtons(
-              ctx,
-              `Número de CD (${cdNumber}) verificado y guardado correctamente.`,
-              [
-                [{ text: "Agregar Otro", callback_data: "add_new_telegrama" }],
-                [
-                  {
-                    text: "Ver Seguimientos",
-                    callback_data: "view_all_telegramas",
-                  },
-                ],
-                [
-                  {
-                    text: "Volver al Menú Principal",
-                    callback_data: "back_to_main",
-                  },
-                ],
-              ]
-            );
-          } else {
-            logger.info(
-              `No se encontraron resultados para el número de CD (${cdNumber}).`
-            );
-            if (scrapingResult.message === "No se encontraron resultados") {
-              await editMessageWithButtons(
-                ctx,
-                `No se encontraron resultados para el número de CD (${cdNumber}). Ingrese un código válido.`,
-                [
-                  [
-                    {
-                      text: "Agregar Otro",
-                      callback_data: "add_new_telegrama",
-                    },
-                  ],
-                  [
-                    {
-                      text: "Ver Seguimientos",
-                      callback_data: "view_all_telegramas",
-                    },
-                  ],
-                  [
-                    {
-                      text: "Volver al Menú Principal",
-                      callback_data: "back_to_main",
-                    },
-                  ],
-                ]
-              );
-            } else {
-              await editMessageWithButtons(
-                ctx,
-                `No se puso verificar el código CD (${cdNumber}). Se ha guardado el código para verificarlo más tarde.`,
-                [
-                  [
-                    {
-                      text: "Agregar Otro",
-                      callback_data: "add_new_telegrama",
-                    },
-                  ],
-                  [
-                    {
-                      text: "Ver Seguimientos",
-                      callback_data: "view_all_telegramas",
-                    },
-                  ],
-                  [
-                    {
-                      text: "Volver al Menú Principal",
-                      callback_data: "back_to_main",
-                    },
-                  ],
-                ]
-              );
-              const saveUnverifiedTracking = await Tracking.create({
-                userId: ctx.from.id,
-                trackingCode: cdNumber,
-                trackingType: "carta_documento",
-                isVerified: false,
-                isValid: false,
-                alias: alias,
-              });
-              logger.info(saveUnverifiedTracking);
-            }
-          }
         }
 
         // Eliminar el mensaje que contiene el número de 9 dígitos ingresado por el usuario
