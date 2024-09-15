@@ -454,7 +454,7 @@ exports.handleAddNewTelegrama = async (ctx) => {
 
 exports.handleDeleteTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
-  const trackingTelegramas = await getTrackingTelegramas(userId, false); // Obtener los datos
+  const trackingTelegramas = await getTrackingTelegramas(userId, {isArchive: false, isErase: false}); // Obtener los datos
 
   // Verificar si hay elementos para eliminar
   if (trackingTelegramas.length === 0) {
@@ -950,7 +950,7 @@ exports.handleCompleteTracking = async (ctx) => {
 
 exports.handleArchiveTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
-  const trackingTelegramas = await getTrackingTelegramas(userId, false); // Obtener los datos
+  const trackingTelegramas = await getTrackingTelegramas(userId, {isArchive: false, isErase: false}); // Obtener los datos
 
   // Verificar si hay elementos para archivar
   if (trackingTelegramas.length === 0) {
@@ -1039,7 +1039,7 @@ exports.handleArchiveTracking = async (ctx) => {
 
 exports.handleTrackingTelegramas = async (ctx) => {
   const userId = ctx.from.id;
-  const trackingTelegramas = await getTrackingTelegramas(userId, false); // Implementar la función para obtener los datos
+  const trackingTelegramas = await getTrackingTelegramas(userId, {isArchive: false, isErase: false}); // Implementar la función para obtener los datos
 
   const maxAliasLength = 15; // Longitud máxima permitida para el alias
 
@@ -1071,7 +1071,7 @@ exports.handleTrackingTelegramas = async (ctx) => {
       : "Sin elementos";
 
   // Leyenda explicativa de los emojis
-  const leyendaEmojis = `\n\n✅ Valido\n❌ Inválido\n🕒 Validación pendiente`;
+  const leyendaEmojis = `\n\n✅ Válido Activo\n❌ Inválido\n🕒 Validación pendiente`;
 
   await ctx.editMessageText(
     `Tus telegramas/cartas seguidas:\n\n${elementosMsg}${leyendaEmojis}`,
