@@ -7,11 +7,9 @@ const Tracking = require("../models/trackingModel");
 const stripe = Stripe(stripeSecretKey);
 const { getTrackingTelegramas } = require("../controllers/trackingController");
 const { scrapeCA } = require("../services/scraper");
-const {logger} = require("../config/logger");
+const { logger } = require("../config/logger");
 const { truncateText } = require("../utils/format");
 const URL_BASE = process.env.BASE_URL;
-
-
 
 exports.handleBotSubscription = async (ctx) => {
   const chatId = ctx.chat.id;
@@ -405,7 +403,8 @@ exports.handleAddNewTelegrama = async (ctx) => {
     // Contar los registros activos (isCompleted: false) del usuario
     const activeTrackingsCount = await Tracking.countDocuments({
       userId: userId,
-      isCompleted: false,
+      isArchive: false,
+      isErase: false,
     });
 
     // Verificar si se ha alcanzado el límite de 10 registros activos
@@ -453,7 +452,6 @@ exports.handleAddNewTelegrama = async (ctx) => {
   }
 };
 
-
 exports.handleDeleteTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
   const trackingTelegramas = await getTrackingTelegramas(userId, false); // Obtener los datos
@@ -496,15 +494,14 @@ exports.handleDeleteTrackingMenu = async (ctx) => {
   });
 };
 
-
 exports.handleDeleteTracking = async (ctx) => {
   const trackingId = ctx.update.callback_query.data.split("_").pop(); // Obtener el ID del seguimiento desde el callback_data
 
   try {
-    // Encontrar y actualizar el seguimiento, marcando isCompleted como true
+    // Encontrar y actualizar el seguimiento, marcando isErase como true
     const tracking = await Tracking.findById(trackingId);
     if (tracking) {
-      tracking.isCompleted = true;
+      tracking.isErase = true;
       await tracking.save();
 
       await ctx.editMessageText(
@@ -696,7 +693,8 @@ exports.handleNewTracking = async (ctx) => {
     // Contar los seguimientos activos del usuario
     const activeTrackings = await Tracking.countDocuments({
       userId: userId,
-      isCompleted: false,
+      isErase: false,
+      isArchive: false,
     });
 
     // Verificar si el usuario ha alcanzado el límite de 10 seguimientos activos
@@ -718,7 +716,9 @@ exports.handleNewTracking = async (ctx) => {
     await newTracking.save();
 
     // Responder al usuario
-    ctx.reply("Nuevo seguimiento agregado exitosamente. En unos minutos se verificará la validez del mismo.");
+    ctx.reply(
+      "Nuevo seguimiento agregado exitosamente. En unos minutos se verificará la validez del mismo."
+    );
   } catch (error) {
     console.error("Error al agregar el seguimiento:", error);
     ctx.reply("Hubo un problema al agregar el seguimiento.");
@@ -763,7 +763,8 @@ exports.handleViewAllTelegramas = async (ctx) => {
     // Buscar todos los telegramas/cartas del usuario que no estén completados
     const trackingTelegramas = await Tracking.find({
       userId: userId,
-      isCompleted: false,
+      isArchive: false,
+      isErase: false,
     });
 
     if (trackingTelegramas.length === 0) {
@@ -820,7 +821,6 @@ exports.handleViewAllTelegramas = async (ctx) => {
   }
 };
 
-
 exports.handleViewTrackingMovements = async (ctx) => {
   try {
     const trackingId = ctx.update.callback_query.data.split("_").pop();
@@ -842,7 +842,11 @@ exports.handleViewTrackingMovements = async (ctx) => {
     }
 
     const movements = tracking.movements;
-    let message = `*CD ${tracking.trackingCode}*\nÚltima actualización: ${moment(tracking.lastUpdated).format('YYYY-MM-DD HH:mm') }\n\n`;
+    let message = `*CD ${
+      tracking.trackingCode
+    }*\nÚltima actualización: ${moment(tracking.lastUpdated).format(
+      "YYYY-MM-DD HH:mm"
+    )}\n\n`;
     if (movements.length === 0) {
       message += "No hay movimientos.";
     } else {
@@ -862,7 +866,12 @@ exports.handleViewTrackingMovements = async (ctx) => {
       reply_markup: {
         inline_keyboard: [
           [{ text: "Agregar alias", callback_data: `add_alias_${trackingId}` }],
-          [{ text: "Enviar Captura de Pantalla", callback_data: `send_screenshot_${trackingId}` }],
+          [
+            {
+              text: "Enviar Captura de Pantalla",
+              callback_data: `send_screenshot_${trackingId}`,
+            },
+          ],
           [{ text: "Volver", callback_data: "view_all_telegramas" }],
         ],
       },
@@ -896,7 +905,12 @@ exports.handleAddAlias = async (ctx) => {
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: "Volver", callback_data: `view_tracking_movements_${trackingId}` }],
+            [
+              {
+                text: "Volver",
+                callback_data: `view_tracking_movements_${trackingId}`,
+              },
+            ],
           ],
         },
       }
@@ -910,13 +924,11 @@ exports.handleAddAlias = async (ctx) => {
     ctx.session.trackingIdForAlias = trackingId;
   } catch (error) {
     console.error("Error al solicitar el alias:", error);
-    await ctx.reply("Hubo un problema al solicitar el alias. Intenta nuevamente.");
+    await ctx.reply(
+      "Hubo un problema al solicitar el alias. Intenta nuevamente."
+    );
   }
 };
-
-
-
-
 
 // Ejemplo de cómo completar un seguimiento
 exports.handleCompleteTracking = async (ctx) => {
@@ -978,7 +990,6 @@ exports.handleArchiveTrackingMenu = async (ctx) => {
   });
 };
 
-
 exports.handleArchiveTracking = async (ctx) => {
   const trackingId = ctx.update.callback_query.data.split("_").pop(); // Obtener el ID del seguimiento desde el callback_data
 
@@ -986,7 +997,7 @@ exports.handleArchiveTracking = async (ctx) => {
     // Encontrar y actualizar el seguimiento, marcando isCompleted como true
     const tracking = await Tracking.findById(trackingId);
     if (tracking) {
-      tracking.isCompleted = true;
+      tracking.isArchive = true;
       await tracking.save();
 
       await ctx.editMessageText(
@@ -1038,21 +1049,23 @@ exports.handleTrackingTelegramas = async (ctx) => {
           .map((item) => {
             let emoji;
             if (item.isVerified === false) {
-              emoji = '🕒'; // Si 'isVerified' es false, usa el emoji de cronómetro.
+              emoji = "🕒"; // Si 'isVerified' es false, usa el emoji de cronómetro.
             } else if (item.isVerified === true && item.isValid === false) {
-              emoji = '❌'; // Si 'isVerified' es true pero 'isValid' es false, usa el emoji de error.
+              emoji = "❌"; // Si 'isVerified' es true pero 'isValid' es false, usa el emoji de error.
             } else {
-              emoji = '✅'; // Si 'isVerified' es true e 'isValid' es true, usa el emoji de check.
+              emoji = "✅"; // Si 'isVerified' es true e 'isValid' es true, usa el emoji de check.
             }
 
             // Truncar alias si excede la longitud máxima
             const alias = item.alias
               ? item.alias.length > maxAliasLength
-                ? item.alias.substring(0, maxAliasLength) + '...'
+                ? item.alias.substring(0, maxAliasLength) + "..."
                 : item.alias
-              : '';
+              : "";
 
-            return `${emoji} CD${item.trackingCode}${alias ? ` (${alias})` : ''}`;
+            return `${emoji} CD${item.trackingCode}${
+              alias ? ` (${alias})` : ""
+            }`;
           })
           .join("\n")
       : "Sin elementos";
@@ -1095,8 +1108,6 @@ exports.handleTrackingTelegramas = async (ctx) => {
     }
   );
 };
-
-
 
 // Funciones auxiliares (implementar estas funciones para obtener y manejar los datos)
 async function getTrackingCausas(userId) {
