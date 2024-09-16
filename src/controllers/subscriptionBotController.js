@@ -6,7 +6,6 @@ const Stripe = require("stripe");
 const Tracking = require("../models/trackingModel");
 const stripe = Stripe(stripeSecretKey);
 const { getTrackingTelegramas } = require("../controllers/trackingController");
-const { scrapeCA } = require("../services/scraper");
 const { logger } = require("../config/logger");
 const { truncateText } = require("../utils/format");
 const URL_BASE = process.env.BASE_URL;
@@ -75,18 +74,17 @@ exports.handleBotSubscription = async (ctx) => {
 
 exports.handleBotAccess = async (ctx) => {
   const userId = ctx.from.id;
-  console.log(`User ID: ${userId}`); // Log para verificar el userId
+  logger.info(`User ID: ${userId}`); // Log para verificar el userId
 
   try {
     const subscription = await Subscription.findOne({ userId: userId });
-    console.log(`Subscription found: ${subscription}`); // Log para verificar la suscripción
+    logger.info(`Subscription found: ${subscription}`); // Log para verificar la suscripción
 
     if (subscription && subscription.status === "active") {
-      console.log("Subscription is active");
+      logger.info("Subscription is active");
 
       // Si es una llamada desde un callback_query
       if (ctx.update.callback_query && ctx.update.callback_query.message) {
-        console.log("Editing message to show options");
         await ctx.editMessageText("Selecciona una opción:", {
           chat_id: ctx.chat.id,
           message_id: ctx.update.callback_query.message.message_id,
@@ -99,7 +97,6 @@ exports.handleBotAccess = async (ctx) => {
         });
       } else {
         // Si es una llamada desde /start o un mensaje regular
-        console.log("Sending options as a new message");
         await ctx.reply("Selecciona una opción:", {
           reply_markup: {
             inline_keyboard: [
@@ -110,7 +107,7 @@ exports.handleBotAccess = async (ctx) => {
         });
       }
     } else {
-      console.log("No active subscription found");
+      logger.info("No active subscription found");
       const chatId = ctx.chat.id;
       const firstName = ctx.from.first_name;
 
@@ -197,7 +194,6 @@ exports.handleSubscriptionInfo = async (ctx) => {
     )}&chatid=${chatId}`;
 
     if (!subscription) {
-      console.log("No se encontró la suscripción en la base de datos.");
       await ctx.editMessageText(
         "No tienes una suscripción activa. Presiona el botón para suscribirte.",
         {
@@ -217,7 +213,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
       return;
     }
 
-    console.log(
+    logger.info(
       "Database status subscription",
       subscription.status,
       "for user",
@@ -229,9 +225,9 @@ exports.handleSubscriptionInfo = async (ctx) => {
       customer: subscription.stripeCustomerId,
       limit: 1,
     });
-    console.log(stripeSubscription);
+    logger.info(stripeSubscription);
     if (!stripeSubscription || stripeSubscription.data.length === 0) {
-      console.log("No se encontraron datos de suscripción en Stripe.");
+      logger.info("No se encontraron datos de suscripción en Stripe.");
       await ctx.editMessageText(
         "No tienes una suscripción activa. Presiona el botón para suscribirte.",
         {
@@ -253,7 +249,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
 
     const subscriptionDetails = stripeSubscription.data[0];
     if (!subscriptionDetails || !subscriptionDetails.status) {
-      console.log("No se pudo obtener el estado de la suscripción.");
+      logger.info("No se pudo obtener el estado de la suscripción.");
       await ctx.editMessageText(
         "Hubo un problema al obtener los datos de tu suscripción.",
         {
@@ -267,7 +263,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
       return;
     }
 
-    console.log("Stripe status subscription", subscriptionDetails.status);
+    logger.info("Stripe status subscription", subscriptionDetails.status);
 
     // Intentar obtener la próxima fecha de facturación
     let nextInvoiceDate = null;
@@ -279,7 +275,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
         .unix(upcomingInvoice.next_payment_attempt)
         .format("DD/MM/YYYY");
     } catch (err) {
-      console.log("No upcoming invoice found or error retrieving it:", err);
+      logger.error("No upcoming invoice found or error retrieving it:", err);
     }
 
     // Formatear las fechas y detalles que quieras mostrar
@@ -364,11 +360,11 @@ exports.handleTrackingOptions = async (ctx) => {
       error.code === 400 &&
       error.description.includes("message is not modified")
     ) {
-      console.log(
+      logger.error(
         "El mensaje ya tiene el contenido actualizado. No es necesario editarlo."
       );
     } else {
-      console.error("Error al manejar las opciones de tracking:", error);
+      logger.error("Error al manejar las opciones de tracking:", error);
     }
   }
 };
@@ -602,11 +598,11 @@ exports.handleBackToMain = async (ctx) => {
       error.code === 400 &&
       error.description.includes("message is not modified")
     ) {
-      console.log(
+      logger.info(
         "El mensaje ya tiene el contenido actualizado. No es necesario editarlo."
       );
     } else {
-      console.error("Error al manejar el retorno al menú principal:", error);
+      logger.error("Error al manejar el retorno al menú principal:", error);
     }
   }
 };

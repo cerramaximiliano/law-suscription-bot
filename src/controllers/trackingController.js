@@ -106,7 +106,6 @@ const saveOrUpdateTrackingData = async (
 };
 
 async function getTrackingTelegramas(userId, isCompleted) {
-  console.log(isCompleted)
   try {
     // Buscar en la colección Tracking todos los documentos que coincidan con el userId y tengan un trackingType relacionado a telegramas/cartas documento
     const trackingTelegramas = await Tracking.find({
