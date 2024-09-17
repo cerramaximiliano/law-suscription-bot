@@ -5,6 +5,8 @@ const bot = require("../bot");
 const stripe = Stripe(stripeSecretKey);
 const BASE_URL = process.env.BASE_URL;
 const path = require("path");
+const { logger } = require("../config/logger");
+const moment = require("moment");
 
 exports.getCustomerById = async (customerId) => {
   try {
@@ -49,8 +51,10 @@ const findOrCreateCustomerByTelegramId = async (userId, name) => {
 exports.createSubscription = async (req, res) => {
   const { userId, name, chatid } = req.query;
   if (!userId || !name || !chatid) {
-    res.sendFile(path.join(__dirname, "../../public/views", "wrong-subscription.html"));
-    return 
+    res.sendFile(
+      path.join(__dirname, "../../public/views", "wrong-subscription.html")
+    );
+    return;
   }
   try {
     // Buscar o crear el cliente en Stripe utilizando el userId de Telegram
@@ -143,7 +147,7 @@ exports.handleSuccess = async (req, res) => {
 exports.saveMessageIdAndDate = async (userId, messageId) => {
   try {
     // Actualizar el documento del tracking con el messageId y la fecha
-    const subscription = await Tracking.findOneAndUpdate(
+    const subscription = await Subscription.findOneAndUpdate(
       { userId: userId },
       {
         $set: {
@@ -159,9 +163,7 @@ exports.saveMessageIdAndDate = async (userId, messageId) => {
         `Suscripción actualizada con messageId: ${messageId} y fecha para user ${userId}`
       );
     } else {
-      logger.warn(
-        `No se encontró una suscripción para actualizar ${userId}`
-      );
+      logger.warn(`No se encontró una suscripción para actualizar ${userId}`);
     }
   } catch (error) {
     logger.error(

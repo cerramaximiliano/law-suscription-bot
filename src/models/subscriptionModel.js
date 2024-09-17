@@ -6,7 +6,8 @@ const subscriptionSchema = new Schema({
   userId: { type: String, required: true },
   chatId: { type: String, required: true },
   subscriptionDate: { type: Date, default: Date.now },
-
+  lastMessageId: { type: String },
+  lastMessageDate: { type: Date },
   status: { type: String, default: "active" },
 });
 

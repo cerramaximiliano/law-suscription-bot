@@ -350,6 +350,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
 };
 
 exports.handleTrackingOptions = async (ctx) => {
+  const userId = ctx.from.id;
   try {
     const newText = "Selecciona una opción de tracking:";
     const currentText = ctx.update.callback_query.message.text;
@@ -370,8 +371,8 @@ exports.handleTrackingOptions = async (ctx) => {
           ],
         },
       });
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
     }
-    await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
     if (
       error.code === 400 &&
@@ -636,8 +637,8 @@ exports.handleBackToMain = async (ctx) => {
           ],
         },
       });
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
     }
-    await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
     if (
       error.code === 400 &&
@@ -779,25 +780,31 @@ exports.handleDeleteTracking = async (ctx) => {
     await Tracking.findByIdAndDelete(trackingId);
 
     // Editar el mensaje para confirmar la eliminación
-    const sentMessage = await ctx.editMessageText("Seguimiento eliminado exitosamente.", {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Volver", callback_data: "tracking_telegramas" }],
-        ],
-      },
-    });
+    const sentMessage = await ctx.editMessageText(
+      "Seguimiento eliminado exitosamente.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: "tracking_telegramas" }],
+          ],
+        },
+      }
+    );
     await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
     logger.error("Error al eliminar el seguimiento:", error);
 
     // Editar el mensaje para informar del problema
-    const sentMessage = await ctx.editMessageText("Hubo un problema al eliminar el seguimiento.", {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Volver", callback_data: "tracking_telegramas" }],
-        ],
-      },
-    });
+    const sentMessage = await ctx.editMessageText(
+      "Hubo un problema al eliminar el seguimiento.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: "tracking_telegramas" }],
+          ],
+        },
+      }
+    );
     await saveMessageIdAndDate(userId, sentMessage.message_id);
   }
 };
@@ -814,13 +821,16 @@ exports.handleViewAllTelegramas = async (ctx) => {
     });
 
     if (trackingTelegramas.length === 0) {
-      const sentMessage = await ctx.editMessageText("No tienes telegramas/cartas activas.", {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Volver", callback_data: "tracking_telegramas" }],
-          ],
-        },
-      });
+      const sentMessage = await ctx.editMessageText(
+        "No tienes telegramas/cartas activas.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Volver", callback_data: "tracking_telegramas" }],
+            ],
+          },
+        }
+      );
       await saveMessageIdAndDate(userId, sentMessage.message_id);
       return;
     }
@@ -1010,13 +1020,16 @@ exports.handleArchiveTrackingMenu = async (ctx) => {
 
   // Verificar si hay elementos para archivar
   if (trackingTelegramas.length === 0) {
-    const sentMessage = await ctx.editMessageText("No tienes seguimientos activos para archivar.", {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Volver", callback_data: "tracking_telegramas" }],
-        ],
-      },
-    });
+    const sentMessage = await ctx.editMessageText(
+      "No tienes seguimientos activos para archivar.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: "tracking_telegramas" }],
+          ],
+        },
+      }
+    );
     await saveMessageIdAndDate(userId, sentMessage.message_id);
     return;
   }
@@ -1040,11 +1053,14 @@ exports.handleArchiveTrackingMenu = async (ctx) => {
   // Agregar el botón de "Volver"
   buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
 
-  const sentMessage = await ctx.editMessageText("Elige el seguimiento que deseas archivar:", {
-    reply_markup: {
-      inline_keyboard: buttons,
-    },
-  });
+  const sentMessage = await ctx.editMessageText(
+    "Elige el seguimiento que deseas archivar:",
+    {
+      reply_markup: {
+        inline_keyboard: buttons,
+      },
+    }
+  );
   await saveMessageIdAndDate(userId, sentMessage.message_id);
 };
 

@@ -108,6 +108,7 @@ bot.start(async (ctx) => {
 });
 
 bot.on("text", async (ctx) => {
+  const userId = ctx.from.id;
   if (!ctx.session) {
     ctx.session = {}; // Inicializa la sesión si no está definida
   }
@@ -133,7 +134,7 @@ bot.on("text", async (ctx) => {
 
         if (existingTracking) {
           // Si el tracking ya existe, no hacer scraping y enviar un mensaje
-          await editMessageWithButtons(
+          const sentMessage = await editMessageWithButtons(
             ctx,
             `El número de CD (${cdNumber}) ya se encuentra agregado.`,
             [
@@ -152,9 +153,10 @@ bot.on("text", async (ctx) => {
               ],
             ]
           );
+          await saveMessageIdAndDate(userId, sentMessage.message_id);
         } else {
           // Si el tracking no existe, proceder con el scraping
-          await editMessageWithButtons(
+          const sentMessage = await editMessageWithButtons(
             ctx,
             "Nuevo seguimiento agregado exitosamente. En unos minutos se verificará la validez del mismo.",
             [
@@ -166,7 +168,7 @@ bot.on("text", async (ctx) => {
               ],
             ]
           );
-
+          await saveMessageIdAndDate(userId, sentMessage.message_id);
           const saveUnverifiedTracking = await Tracking.create({
             userId: ctx.from.id,
             trackingCode: cdNumber,
@@ -186,7 +188,7 @@ bot.on("text", async (ctx) => {
         }, 3000); // 3000 milisegundos = 3 segundos (puedes ajustar este tiempo)
       } catch (err) {
         logger.info("Error web scraping: ", err);
-        await editMessageWithButtons(
+        const sentMessage = await editMessageWithButtons(
           ctx,
           "No se pudo verificar el tracking. Asegúrate de que el código es correcto e inténtalo de nuevo.",
           [
@@ -205,6 +207,7 @@ bot.on("text", async (ctx) => {
             ],
           ]
         );
+        await saveMessageIdAndDate(userId, sentMessage.message_id);
       }
 
       // Resetea el estado
@@ -247,7 +250,7 @@ bot.on("text", async (ctx) => {
 
       // Verificar que messageIdToEdit tenga un valor válido
       if (ctx.session.messageIdToEdit) {
-        await ctx.telegram.editMessageText(
+        const sentMessage = await ctx.telegram.editMessageText(
           ctx.chat.id,
           ctx.session.messageIdToEdit, // El mensaje que queremos editar
           undefined,
@@ -265,6 +268,7 @@ bot.on("text", async (ctx) => {
             },
           }
         );
+        await saveMessageIdAndDate(userId, sentMessage.message_id);
       } else {
         // Si no hay messageIdToEdit, responde con un nuevo mensaje
         const sentMessage = await ctx.reply(
@@ -282,13 +286,14 @@ bot.on("text", async (ctx) => {
             },
           }
         );
+        await saveMessageIdAndDate(userId, sentMessage.message_id);
       }
 
       // Restablecer el estado de la sesión
       ctx.session.waitingForAlias = false;
       ctx.session.trackingIdForAlias = null;
     } catch (error) {
-      console.error("Error al guardar el alias:", error);
+      logger.error("Error al guardar el alias:", error);
       await ctx.reply(
         "Hubo un problema al guardar el alias. Intenta nuevamente."
       );
@@ -433,7 +438,7 @@ bot.action(/^send_screenshot_\w+$/, async (ctx) => {
     // Eliminar el mensaje de error después de 5 segundos
     setTimeout(() => {
       ctx.deleteMessage(errorMessage.message_id).catch((err) => {
-        console.error("Error al eliminar el mensaje de error:", err);
+        logger.error("Error al eliminar el mensaje de error:", err);
       });
     }, 5000); // 5000 milisegundos = 5 segundos
   }
