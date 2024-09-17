@@ -8,8 +8,10 @@ const stripe = Stripe(stripeSecretKey);
 const { getTrackingTelegramas } = require("../controllers/trackingController");
 const { logger } = require("../config/logger");
 const { truncateText } = require("../utils/format");
+const { saveMessageIdAndDate } = require("./subscriptionController");
 const URL_BASE = process.env.BASE_URL;
 
+// En esta función solo se envían mensajes en el GRUPO - No guardo el message id
 exports.handleBotSubscription = async (ctx) => {
   const chatId = ctx.chat.id;
   const userId = ctx.from.id;
@@ -65,7 +67,7 @@ exports.handleBotSubscription = async (ctx) => {
       }, 10000);
     }
   } catch (error) {
-    console.error("Error al enviar mensaje privado:", error);
+    logger.error("Error al enviar mensaje privado:", error);
     await ctx.reply(
       "No pude enviarte un mensaje privado. Asegúrate de que el bot pueda enviarte mensajes directos."
     );
@@ -85,19 +87,24 @@ exports.handleBotAccess = async (ctx) => {
 
       // Si es una llamada desde un callback_query
       if (ctx.update.callback_query && ctx.update.callback_query.message) {
-        await ctx.editMessageText("Selecciona una opción:", {
-          chat_id: ctx.chat.id,
-          message_id: ctx.update.callback_query.message.message_id,
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "Suscripción", callback_data: "subscription_info" }],
-              [{ text: "Servicios", callback_data: "tracking_options" }],
-            ],
-          },
-        });
+        const sentMessage = await ctx.editMessageText(
+          "Selecciona una opción:",
+          {
+            chat_id: ctx.chat.id,
+            message_id: ctx.update.callback_query.message.message_id,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "Suscripción", callback_data: "subscription_info" }],
+                [{ text: "Servicios", callback_data: "tracking_options" }],
+              ],
+            },
+          }
+        );
+        // Guardar el messageId y la fecha en el documento Tracking
+        await saveMessageIdAndDate(userId, sentMessage.message_id);
       } else {
         // Si es una llamada desde /start o un mensaje regular
-        await ctx.reply("Selecciona una opción:", {
+        const sentMessage = await ctx.reply("Selecciona una opción:", {
           reply_markup: {
             inline_keyboard: [
               [{ text: "Suscripción", callback_data: "subscription_info" }],
@@ -105,6 +112,7 @@ exports.handleBotAccess = async (ctx) => {
             ],
           },
         });
+        await saveMessageIdAndDate(userId, sentMessage.message_id);
       }
     } else {
       logger.info("No active subscription found");
@@ -117,7 +125,7 @@ exports.handleBotAccess = async (ctx) => {
       )}&chatid=${chatId}`;
 
       if (ctx.update.callback_query && ctx.update.callback_query.message) {
-        await ctx.editMessageText(
+        const sentMessage = await ctx.editMessageText(
           "No tienes una suscripción activa. Presiona el botón para suscribirte:",
           {
             chat_id: ctx.chat.id,
@@ -135,8 +143,9 @@ exports.handleBotAccess = async (ctx) => {
             },
           }
         );
+        await saveMessageIdAndDate(userId, sentMessage.message_id);
       } else {
-        await ctx.reply(
+        const sentMessage = await ctx.reply(
           "No tienes una suscripción activa. Presiona el botón para suscribirte:",
           {
             reply_markup: {
@@ -152,13 +161,14 @@ exports.handleBotAccess = async (ctx) => {
             },
           }
         );
+        await saveMessageIdAndDate(userId, sentMessage.message_id);
       }
     }
   } catch (error) {
-    console.error("Error al verificar la suscripción:", error);
+    logger.error("Error al verificar la suscripción:", error);
 
     if (ctx.update.callback_query && ctx.update.callback_query.message) {
-      await ctx.editMessageText(
+      const sentMessage = await ctx.editMessageText(
         "Hubo un problema al verificar tu suscripción. Por favor, intenta nuevamente más tarde.",
         {
           chat_id: ctx.chat.id,
@@ -170,10 +180,12 @@ exports.handleBotAccess = async (ctx) => {
           },
         }
       );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
     } else {
-      await ctx.reply(
+      const sentMessage = await ctx.reply(
         "Hubo un problema al verificar tu suscripción. Por favor, intenta nuevamente más tarde."
       );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
     }
   }
 };
@@ -194,7 +206,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
     )}&chatid=${chatId}`;
 
     if (!subscription) {
-      await ctx.editMessageText(
+      const sentMessage = await ctx.editMessageText(
         "No tienes una suscripción activa. Presiona el botón para suscribirte.",
         {
           reply_markup: {
@@ -210,6 +222,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
           },
         }
       );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
       return;
     }
 
@@ -228,7 +241,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
     logger.info(stripeSubscription);
     if (!stripeSubscription || stripeSubscription.data.length === 0) {
       logger.info("No se encontraron datos de suscripción en Stripe.");
-      await ctx.editMessageText(
+      const sentMessage = await ctx.editMessageText(
         "No tienes una suscripción activa. Presiona el botón para suscribirte.",
         {
           reply_markup: {
@@ -244,13 +257,14 @@ exports.handleSubscriptionInfo = async (ctx) => {
           },
         }
       );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
       return;
     }
 
     const subscriptionDetails = stripeSubscription.data[0];
     if (!subscriptionDetails || !subscriptionDetails.status) {
       logger.info("No se pudo obtener el estado de la suscripción.");
-      await ctx.editMessageText(
+      const sentMessage = await ctx.editMessageText(
         "Hubo un problema al obtener los datos de tu suscripción.",
         {
           reply_markup: {
@@ -260,6 +274,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
           },
         }
       );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
       return;
     }
 
@@ -302,7 +317,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
       : `\nPróxima fecha de facturación: No disponible`;
 
     // Editar el mensaje existente para mostrar la información de la suscripción
-    await ctx.editMessageText(
+    const sentMessage = await ctx.editMessageText(
       `Datos de tu suscripción:\n\nEstado: ${status}\nFecha de suscripción: ${startDate}\nFin del período actual: ${currentPeriodEnd}${invoiceMessage}${cancellationMessage}`,
       {
         reply_markup: {
@@ -318,8 +333,9 @@ exports.handleSubscriptionInfo = async (ctx) => {
         },
       }
     );
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
-    console.error("Error al obtener los datos de suscripción:", error);
+    logger.error("Error al obtener los datos de suscripción:", error);
     const sentMessage = await ctx.reply(
       "Hubo un problema al obtener los datos de tu suscripción."
     );
@@ -327,7 +343,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
     // Elimina el mensaje después de 5 segundos
     setTimeout(() => {
       ctx.deleteMessage(sentMessage.message_id).catch((err) => {
-        console.error("Error al eliminar el mensaje:", err);
+        logger.error("Error al eliminar el mensaje:", err);
       });
     }, 5000); // 5000 milisegundos = 5 segundos
   }
@@ -340,7 +356,7 @@ exports.handleTrackingOptions = async (ctx) => {
 
     // Verificar si el contenido del mensaje ha cambiado
     if (newText !== currentText) {
-      await ctx.editMessageText(newText, {
+      const sentMessage = await ctx.editMessageText(newText, {
         reply_markup: {
           inline_keyboard: [
             [{ text: "Tracking de Causas", callback_data: "tracking_causas" }],
@@ -355,6 +371,7 @@ exports.handleTrackingOptions = async (ctx) => {
         },
       });
     }
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
     if (
       error.code === 400 &&
@@ -380,15 +397,19 @@ exports.handleTrackingCausas = async (ctx) => {
           .join("\n")
       : "Sin elementos";
 
-  await ctx.editMessageText(`Tus causas seguidas:\n\n${elementosMsg}`, {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "Agregar Nueva Causa", callback_data: "add_new_causa" }],
-        [{ text: "Ver Todas las Causas", callback_data: "view_all_causas" }],
-        [{ text: "Volver", callback_data: "tracking_options" }],
-      ],
-    },
-  });
+  const sentMessage = await ctx.editMessageText(
+    `Tus causas seguidas:\n\n${elementosMsg}`,
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Agregar Nueva Causa", callback_data: "add_new_causa" }],
+          [{ text: "Ver Todas las Causas", callback_data: "view_all_causas" }],
+          [{ text: "Volver", callback_data: "tracking_options" }],
+        ],
+      },
+    }
+  );
+  await saveMessageIdAndDate(userId, sentMessage.message_id);
 };
 
 // Este método maneja el click en "Agregar Nuevo Telegrama/Carta"
@@ -405,7 +426,7 @@ exports.handleAddNewTelegrama = async (ctx) => {
 
     // Verificar si se ha alcanzado el límite de 10 registros activos
     if (activeTrackingsCount >= 10) {
-      await ctx.editMessageText(
+      const sentMessage = await ctx.editMessageText(
         "Has alcanzado el límite de 10 seguimientos activos. Elimina o archiva un seguimiento  para agregar uno nuevo.",
         {
           reply_markup: {
@@ -415,30 +436,35 @@ exports.handleAddNewTelegrama = async (ctx) => {
           },
         }
       );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
     } else {
       // Mostrar el menú para agregar un nuevo telegrama/carta si no se ha alcanzado el límite
-      await ctx.editMessageText("Elige la opción deseada:", {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "Carta Documento Correo Argentino",
-                callback_data: "add_carta_documento",
-              },
+      const sentMessage = await ctx.editMessageText(
+        "Elige la opción deseada:",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "Carta Documento Correo Argentino",
+                  callback_data: "add_carta_documento",
+                },
+              ],
+              [
+                {
+                  text: "Telegrama Correo Argentino",
+                  callback_data: "add_telegrama",
+                },
+              ],
+              [{ text: "Volver", callback_data: "tracking_telegramas" }], // Vuelve al menú anterior
             ],
-            [
-              {
-                text: "Telegrama Correo Argentino",
-                callback_data: "add_telegrama",
-              },
-            ],
-            [{ text: "Volver", callback_data: "tracking_telegramas" }], // Vuelve al menú anterior
-          ],
-        },
-      });
+          },
+        }
+      );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
     }
   } catch (error) {
-    console.error(
+    logger.error(
       "Error al verificar el número de seguimientos activos:",
       error
     );
@@ -450,17 +476,25 @@ exports.handleAddNewTelegrama = async (ctx) => {
 
 exports.handleDeleteTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
-  const trackingTelegramas = await getTrackingTelegramas(userId, {isArchive: false, isErase: false}); // Obtener los datos
+  const trackingTelegramas = await getTrackingTelegramas(userId, {
+    isArchive: false,
+    isErase: false,
+  }); // Obtener los datos
 
   // Verificar si hay elementos para eliminar
   if (trackingTelegramas.length === 0) {
-    await ctx.editMessageText("No tienes seguimientos activos para eliminar.", {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Volver", callback_data: "tracking_telegramas" }],
-        ],
-      },
-    });
+    const sentMessage = await ctx.editMessageText(
+      "No tienes seguimientos activos para eliminar.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Volver", callback_data: "tracking_telegramas" }],
+          ],
+        },
+      }
+    );
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
+
     return;
   }
 
@@ -483,16 +517,20 @@ exports.handleDeleteTrackingMenu = async (ctx) => {
   // Agregar el botón de "Volver"
   buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
 
-  await ctx.editMessageText("Elige el seguimiento que deseas eliminar:", {
-    reply_markup: {
-      inline_keyboard: buttons,
-    },
-  });
+  const sentMessage = await ctx.editMessageText(
+    "Elige el seguimiento que deseas eliminar:",
+    {
+      reply_markup: {
+        inline_keyboard: buttons,
+      },
+    }
+  );
+  await saveMessageIdAndDate(userId, sentMessage.message_id);
 };
 
 exports.handleDeleteTracking = async (ctx) => {
   const trackingId = ctx.update.callback_query.data.split("_").pop(); // Obtener el ID del seguimiento desde el callback_data
-
+  const userId = ctx.from.id; // Obtener el ID del usuario
   try {
     // Encontrar y actualizar el seguimiento, marcando isErase como true
     const tracking = await Tracking.findById(trackingId);
@@ -500,7 +538,7 @@ exports.handleDeleteTracking = async (ctx) => {
       tracking.isErase = true;
       await tracking.save();
 
-      await ctx.editMessageText(
+      const sentMessage = await ctx.editMessageText(
         `El seguimiento CD${tracking.trackingCode} ha sido marcado como completado.`,
         {
           reply_markup: {
@@ -510,8 +548,9 @@ exports.handleDeleteTracking = async (ctx) => {
           },
         }
       );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
     } else {
-      await ctx.editMessageText(
+      const sentMessage = await ctx.editMessageText(
         "No se encontró el seguimiento. Por favor, intenta nuevamente.",
         {
           reply_markup: {
@@ -522,9 +561,10 @@ exports.handleDeleteTracking = async (ctx) => {
         }
       );
     }
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
-    console.error("Error al marcar el seguimiento como completado:", error);
-    await ctx.editMessageText(
+    logger.error("Error al marcar el seguimiento como completado:", error);
+    const sentMessage = await ctx.editMessageText(
       "Hubo un problema al intentar eliminar el seguimiento. Por favor, intenta nuevamente.",
       {
         reply_markup: {
@@ -534,10 +574,12 @@ exports.handleDeleteTracking = async (ctx) => {
         },
       }
     );
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   }
 };
 
 exports.handleAddCartaDocumento = async (ctx) => {
+  const userId = ctx.from.id; // Obtener el ID del usuario
   try {
     if (!ctx.session) {
       ctx.session = {}; // Inicializa la sesión si no está definida
@@ -557,6 +599,7 @@ exports.handleAddCartaDocumento = async (ctx) => {
         },
       }
     );
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
 
     // Guarda el ID del mensaje para editarlo después de la validación
     ctx.session.messageIdToEdit = sentMessage.message_id;
@@ -572,13 +615,14 @@ exports.handleAddCartaDocumento = async (ctx) => {
 };
 
 exports.handleBackToMain = async (ctx) => {
+  const userId = ctx.from.id; // Obtener el ID del usuario
   try {
     const newText = "Selecciona una opción:";
     const currentText = ctx.update.callback_query.message.text;
 
     // Verificar si el contenido del mensaje ha cambiado
     if (newText !== currentText) {
-      await ctx.editMessageText(newText, {
+      const sentMessage = await ctx.editMessageText(newText, {
         reply_markup: {
           inline_keyboard: [
             [
@@ -593,6 +637,7 @@ exports.handleBackToMain = async (ctx) => {
         },
       });
     }
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
     if (
       error.code === 400 &&
@@ -624,7 +669,7 @@ exports.handleCancelSubscription = async (ctx) => {
       await ctx.reply("No tienes una suscripción activa para cancelar.");
     }
   } catch (error) {
-    console.error("Error al cancelar la suscripción:", error);
+    logger.error("Error al cancelar la suscripción:", error);
     await ctx.reply(
       "Hubo un problema al cancelar tu suscripción. Por favor, inténtalo nuevamente más tarde."
     );
@@ -652,7 +697,7 @@ exports.handleChangePaymentMethod = async (ctx) => {
     });
 
     // Enviar el enlace al portal de facturación al usuario
-    await ctx.editMessageText(
+    const sentMessage = await ctx.editMessageText(
       `Por favor, sigue este enlace para administrar tu suscripción:`,
       {
         reply_markup: {
@@ -673,8 +718,9 @@ exports.handleChangePaymentMethod = async (ctx) => {
         },
       }
     );
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
-    console.error("Error al cambiar el método de pago:", error);
+    logger.error("Error al cambiar el método de pago:", error);
     await ctx.reply(
       "Hubo un problema al cambiar tu método de pago. Por favor, inténtalo nuevamente más tarde."
     );
@@ -716,13 +762,15 @@ exports.handleNewTracking = async (ctx) => {
       "Nuevo seguimiento agregado exitosamente. En unos minutos se verificará la validez del mismo."
     );
   } catch (error) {
-    console.error("Error al agregar el seguimiento:", error);
+    logger.error("Error al agregar el seguimiento:", error);
     ctx.reply("Hubo un problema al agregar el seguimiento.");
   }
 };
 
 // Ejemplo de cómo manejar la eliminación de un seguimiento
 exports.handleDeleteTracking = async (ctx) => {
+  const userId = ctx.from.id; // Obtener el userId para guardar el mensaje en el documento Tracking
+
   try {
     // Extraer el trackingId del callback_data
     const trackingId = ctx.update.callback_query.data.split("_").pop(); // Extraer el ID del seguimiento desde el callback_data
@@ -731,24 +779,26 @@ exports.handleDeleteTracking = async (ctx) => {
     await Tracking.findByIdAndDelete(trackingId);
 
     // Editar el mensaje para confirmar la eliminación
-    await ctx.editMessageText("Seguimiento eliminado exitosamente.", {
+    const sentMessage = await ctx.editMessageText("Seguimiento eliminado exitosamente.", {
       reply_markup: {
         inline_keyboard: [
           [{ text: "Volver", callback_data: "tracking_telegramas" }],
         ],
       },
     });
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
-    console.error("Error al eliminar el seguimiento:", error);
+    logger.error("Error al eliminar el seguimiento:", error);
 
     // Editar el mensaje para informar del problema
-    await ctx.editMessageText("Hubo un problema al eliminar el seguimiento.", {
+    const sentMessage = await ctx.editMessageText("Hubo un problema al eliminar el seguimiento.", {
       reply_markup: {
         inline_keyboard: [
           [{ text: "Volver", callback_data: "tracking_telegramas" }],
         ],
       },
     });
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   }
 };
 
@@ -764,13 +814,14 @@ exports.handleViewAllTelegramas = async (ctx) => {
     });
 
     if (trackingTelegramas.length === 0) {
-      await ctx.editMessageText("No tienes telegramas/cartas activas.", {
+      const sentMessage = await ctx.editMessageText("No tienes telegramas/cartas activas.", {
         reply_markup: {
           inline_keyboard: [
             [{ text: "Volver", callback_data: "tracking_telegramas" }],
           ],
         },
       });
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
       return;
     }
 
@@ -794,7 +845,7 @@ exports.handleViewAllTelegramas = async (ctx) => {
     buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
 
     // Editar el mensaje para mostrar todos los telegramas/cartas
-    await ctx.editMessageText(
+    const sentMessage = await ctx.editMessageText(
       "Selecciona un telegrama/carta para ver sus movimientos:",
       {
         reply_markup: {
@@ -802,9 +853,10 @@ exports.handleViewAllTelegramas = async (ctx) => {
         },
       }
     );
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
-    console.error("Error al obtener los telegramas/cartas:", error);
-    await ctx.editMessageText(
+    logger.error("Error al obtener los telegramas/cartas:", error);
+    const sentMessage = await ctx.editMessageText(
       "Hubo un problema al obtener los telegramas/cartas.",
       {
         reply_markup: {
@@ -814,17 +866,19 @@ exports.handleViewAllTelegramas = async (ctx) => {
         },
       }
     );
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   }
 };
 
 exports.handleViewTrackingMovements = async (ctx) => {
+  const userId = ctx.from.id;
   try {
     const trackingId = ctx.update.callback_query.data.split("_").pop();
     const tracking = await Tracking.findById(trackingId);
 
     //const trackingCode = tracking.trackingCode
     if (!tracking) {
-      await ctx.editMessageText(
+      const sentMessage = await ctx.editMessageText(
         "No se encontró el seguimiento. Por favor, intenta nuevamente.",
         {
           reply_markup: {
@@ -834,6 +888,7 @@ exports.handleViewTrackingMovements = async (ctx) => {
           },
         }
       );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
       return;
     }
 
@@ -857,7 +912,7 @@ exports.handleViewTrackingMovements = async (ctx) => {
     }
 
     // Editar el mensaje para mostrar los movimientos y agregar los botones
-    await ctx.editMessageText(message, {
+    const sentMessage = await ctx.editMessageText(message, {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
@@ -872,9 +927,10 @@ exports.handleViewTrackingMovements = async (ctx) => {
         ],
       },
     });
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   } catch (error) {
-    console.error("Error al obtener los movimientos del seguimiento:", error);
-    await ctx.editMessageText(
+    logger.error("Error al obtener los movimientos del seguimiento:", error);
+    const sentMessage = await ctx.editMessageText(
       "Hubo un problema al obtener los movimientos del seguimiento.",
       {
         reply_markup: {
@@ -884,12 +940,13 @@ exports.handleViewTrackingMovements = async (ctx) => {
         },
       }
     );
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   }
 };
 
 exports.handleAddAlias = async (ctx) => {
   const trackingId = ctx.update.callback_query.data.split("_").pop();
-
+  const userId = ctx.from.id;
   try {
     // Buscar el documento de seguimiento
     const tracking = await Tracking.findById(trackingId);
@@ -911,7 +968,7 @@ exports.handleAddAlias = async (ctx) => {
         },
       }
     );
-
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
     // Guarda el ID del mensaje para editarlo más tarde
     ctx.session.messageIdToEdit = sentMessage.message_id;
 
@@ -919,7 +976,7 @@ exports.handleAddAlias = async (ctx) => {
     ctx.session.waitingForAlias = true;
     ctx.session.trackingIdForAlias = trackingId;
   } catch (error) {
-    console.error("Error al solicitar el alias:", error);
+    logger.error("Error al solicitar el alias:", error);
     await ctx.reply(
       "Hubo un problema al solicitar el alias. Intenta nuevamente."
     );
@@ -929,7 +986,7 @@ exports.handleAddAlias = async (ctx) => {
 // Ejemplo de cómo completar un seguimiento
 exports.handleCompleteTracking = async (ctx) => {
   const trackingId = ctx.request.body.trackingId; // Supongamos que el ID viene en la solicitud
-
+  const userId = ctx.from.id;
   try {
     const tracking = await Tracking.findById(trackingId);
     if (tracking) {
@@ -946,17 +1003,21 @@ exports.handleCompleteTracking = async (ctx) => {
 
 exports.handleArchiveTrackingMenu = async (ctx) => {
   const userId = ctx.from.id;
-  const trackingTelegramas = await getTrackingTelegramas(userId, {isArchive: false, isErase: false}); // Obtener los datos
+  const trackingTelegramas = await getTrackingTelegramas(userId, {
+    isArchive: false,
+    isErase: false,
+  }); // Obtener los datos
 
   // Verificar si hay elementos para archivar
   if (trackingTelegramas.length === 0) {
-    await ctx.editMessageText("No tienes seguimientos activos para archivar.", {
+    const sentMessage = await ctx.editMessageText("No tienes seguimientos activos para archivar.", {
       reply_markup: {
         inline_keyboard: [
           [{ text: "Volver", callback_data: "tracking_telegramas" }],
         ],
       },
     });
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
     return;
   }
 
@@ -979,24 +1040,24 @@ exports.handleArchiveTrackingMenu = async (ctx) => {
   // Agregar el botón de "Volver"
   buttons.push([{ text: "Volver", callback_data: "tracking_telegramas" }]);
 
-  await ctx.editMessageText("Elige el seguimiento que deseas archivar:", {
+  const sentMessage = await ctx.editMessageText("Elige el seguimiento que deseas archivar:", {
     reply_markup: {
       inline_keyboard: buttons,
     },
   });
+  await saveMessageIdAndDate(userId, sentMessage.message_id);
 };
 
 exports.handleArchiveTracking = async (ctx) => {
   const trackingId = ctx.update.callback_query.data.split("_").pop(); // Obtener el ID del seguimiento desde el callback_data
-
+  const userId = ctx.from.id;
   try {
     // Encontrar y actualizar el seguimiento, marcando isCompleted como true
     const tracking = await Tracking.findById(trackingId);
     if (tracking) {
       tracking.isArchive = true;
       await tracking.save();
-
-      await ctx.editMessageText(
+      const sentMessage = await ctx.editMessageText(
         `El seguimiento CD${tracking.trackingCode} ha sido archivado.`,
         {
           reply_markup: {
@@ -1006,8 +1067,9 @@ exports.handleArchiveTracking = async (ctx) => {
           },
         }
       );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
     } else {
-      await ctx.editMessageText(
+      const sentMessage = await ctx.editMessageText(
         "No se encontró el seguimiento. Por favor, intenta nuevamente.",
         {
           reply_markup: {
@@ -1017,10 +1079,11 @@ exports.handleArchiveTracking = async (ctx) => {
           },
         }
       );
+      await saveMessageIdAndDate(userId, sentMessage.message_id);
     }
   } catch (error) {
-    console.error("Error al archivar el seguimiento:", error);
-    await ctx.editMessageText(
+    logger.error("Error al archivar el seguimiento:", error);
+    const sentMessage = await ctx.editMessageText(
       "Hubo un problema al intentar archivar el seguimiento. Por favor, intenta nuevamente.",
       {
         reply_markup: {
@@ -1030,12 +1093,16 @@ exports.handleArchiveTracking = async (ctx) => {
         },
       }
     );
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
   }
 };
 
 exports.handleTrackingTelegramas = async (ctx) => {
   const userId = ctx.from.id;
-  const trackingTelegramas = await getTrackingTelegramas(userId, {isArchive: false, isErase: false}); // Implementar la función para obtener los datos
+  const trackingTelegramas = await getTrackingTelegramas(userId, {
+    isArchive: false,
+    isErase: false,
+  }); // Implementar la función para obtener los datos
 
   const maxAliasLength = 15; // Longitud máxima permitida para el alias
 
@@ -1069,7 +1136,7 @@ exports.handleTrackingTelegramas = async (ctx) => {
   // Leyenda explicativa de los emojis
   const leyendaEmojis = `\n\n✅ Válido Activo\n❌ Inválido\n🕒 Validación pendiente`;
 
-  await ctx.editMessageText(
+  const sentMessage = await ctx.editMessageText(
     `Tus telegramas/cartas seguidas:\n\n${elementosMsg}${leyendaEmojis}`,
     {
       reply_markup: {
@@ -1103,6 +1170,7 @@ exports.handleTrackingTelegramas = async (ctx) => {
       },
     }
   );
+  await saveMessageIdAndDate(userId, sentMessage.message_id);
 };
 
 // Funciones auxiliares (implementar estas funciones para obtener y manejar los datos)

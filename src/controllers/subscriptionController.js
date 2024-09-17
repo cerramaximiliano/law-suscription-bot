@@ -138,3 +138,35 @@ exports.handleSuccess = async (req, res) => {
     res.sendFile(path.join(__dirname, "../../public", "error-session.html"));
   }
 };
+
+// Función general para actualizar el messageId y la fecha en el documento Tracking
+exports.saveMessageIdAndDate = async (userId, messageId) => {
+  try {
+    // Actualizar el documento del tracking con el messageId y la fecha
+    const subscription = await Tracking.findOneAndUpdate(
+      { userId: userId },
+      {
+        $set: {
+          lastMessageId: messageId,
+          lastMessageDate: moment().toDate(), // Fecha actual
+        },
+      },
+      { new: true } // Retorna el documento actualizado
+    );
+
+    if (subscription) {
+      logger.info(
+        `Suscripción actualizada con messageId: ${messageId} y fecha para user ${userId}`
+      );
+    } else {
+      logger.warn(
+        `No se encontró una suscripción para actualizar ${userId}`
+      );
+    }
+  } catch (error) {
+    logger.error(
+      `Error al actualizar el messageId y fecha para user ${userId}:`,
+      error
+    );
+  }
+};
