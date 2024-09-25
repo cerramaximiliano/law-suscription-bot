@@ -579,7 +579,50 @@ exports.handleDeleteTracking = async (ctx) => {
   }
 };
 
+exports.handleAddTracking = async (ctx, trackingType) => {
+  const userId = ctx.from.id; // Obtener el ID del usuario
+  try {
+    if (!ctx.session) {
+      ctx.session = {}; // Inicializa la sesión si no está definida
+    }
+
+    // Envía un mensaje solicitando el número de CD de 9 dígitos y guarda el ID del mensaje
+    const sentMessage = await ctx.editMessageText(
+      "Escriba el *número de CD* de 9 dígitos, luego agregue un espacio y un *alias* si lo desea:",
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "Volver", callback_data: "tracking_telegramas" }, // Callback para volver al menú anterior
+            ],
+          ],
+        },
+      }
+    );
+    await saveMessageIdAndDate(userId, sentMessage.message_id);
+
+    // Guarda el tipo de tracking (carta_documento o telegrama) y el ID del mensaje para editarlo después de la validación
+    ctx.session.messageIdToEdit = sentMessage.message_id;
+    ctx.session.waitingForCDNumber = true;
+    ctx.session.trackingType = trackingType; // Guardar el tipo de tracking en la sesión
+  } catch (error) {
+    logger.error("Error al solicitar el número de CD/Telegrama:", error);
+    await ctx.reply(
+      "Hubo un problema al solicitar el número. Intenta nuevamente."
+    );
+  }
+};
+
 exports.handleAddCartaDocumento = async (ctx) => {
+  await exports.handleAddTracking(ctx, "carta_documento");
+};
+
+exports.handleAddTelegrama = async (ctx) => {
+  await exports.handleAddTracking(ctx, "telegrama");
+};
+
+/* exports.handleAddCartaDocumento = async (ctx) => {
   const userId = ctx.from.id; // Obtener el ID del usuario
   try {
     if (!ctx.session) {
@@ -613,7 +656,7 @@ exports.handleAddCartaDocumento = async (ctx) => {
       "Hubo un problema al solicitar el número de CD. Intenta nuevamente."
     );
   }
-};
+}; */
 
 exports.handleBackToMain = async (ctx) => {
   const userId = ctx.from.id; // Obtener el ID del usuario

@@ -109,6 +109,8 @@ bot.start(async (ctx) => {
 
 bot.on("text", async (ctx) => {
   const userId = ctx.from.id;
+  const trackingType = ctx.session.trackingType;
+  console.log(trackingType)
   if (!ctx.session) {
     ctx.session = {}; // Inicializa la sesión si no está definida
   }
@@ -129,7 +131,6 @@ bot.on("text", async (ctx) => {
         const existingTracking = await Tracking.findOne({
           userId: ctx.from.id,
           trackingCode: cdNumber,
-          trackingType: "carta_documento",
         });
 
         if (existingTracking) {
@@ -153,7 +154,7 @@ bot.on("text", async (ctx) => {
               ],
             ]
           );
-          await saveMessageIdAndDate(userId, sentMessage.message_id);
+          //await saveMessageIdAndDate(userId, sentMessage.message_id);
         } else {
           // Si el tracking no existe, proceder con el scraping
           const sentMessage = await editMessageWithButtons(
@@ -168,7 +169,8 @@ bot.on("text", async (ctx) => {
               ],
             ]
           );
-          await saveMessageIdAndDate(userId, sentMessage.message_id);
+          console.log(sentMessage)
+          //await saveMessageIdAndDate(userId, sentMessage.message_id);
           const saveUnverifiedTracking = await Tracking.create({
             userId: ctx.from.id,
             trackingCode: cdNumber,
@@ -187,7 +189,7 @@ bot.on("text", async (ctx) => {
           });
         }, 3000); // 3000 milisegundos = 3 segundos (puedes ajustar este tiempo)
       } catch (err) {
-        logger.info("Error web scraping: ", err);
+        logger.info("Error en el ingreso de seguimiento: ", err);
         const sentMessage = await editMessageWithButtons(
           ctx,
           "No se pudo verificar el tracking. Asegúrate de que el código es correcto e inténtalo de nuevo.",
@@ -207,7 +209,7 @@ bot.on("text", async (ctx) => {
             ],
           ]
         );
-        await saveMessageIdAndDate(userId, sentMessage.message_id);
+        //await saveMessageIdAndDate(userId, sentMessage.message_id);
       }
 
       // Resetea el estado
@@ -391,8 +393,12 @@ bot.action("add_carta_documento", async (ctx) => {
     ctx
   ); // Solicita el número de CD
 });
-// También asegúrate de manejar los callback para 'add_carta_documento' y 'add_telegrama'
-// para que realicen la acción deseada, como mostrar un formulario o iniciar un seguimiento.
+
+bot.action("add_telegrama", async (ctx) => {
+  await require("../controllers/subscriptionBotController").handleAddTelegrama(
+    ctx
+  ); // Solicita el número de CD
+});
 
 // Acción para mostrar el menú de archivado
 bot.action("archive_tracking_menu", async (ctx) => {

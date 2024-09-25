@@ -73,7 +73,6 @@ const trackingSchema = new Schema({
   screenshots: {
     path: {
       type: String,
-      required: true,
     },
     capturedAt: {
       type: Date,
