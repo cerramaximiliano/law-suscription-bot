@@ -2,7 +2,7 @@
 module.exports = {
     apps: [
       {
-        name: "infobot-main",
+        name: "law-suscription-bot",
         script: "index.js",
         watch: false,
         ignore_watch: ["node_modules", "src/logs", ".env", ".env.production", ".env.development", ".git"], // Excluye la carpeta de logs y node_modules
