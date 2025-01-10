@@ -18,6 +18,10 @@
       integrity="sha384-dyB4rTEw3Lp7XYzPQ0sG6ncoRlUz7o2D2J6M8jYk9F6iC6S4ZR4fdpI5c8dyZT1x"
       crossorigin="anonymous"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+    />
     <link rel="icon" href="/img/favicon.ico" type="image/x-icon" />
     <link
       rel="apple-touch-icon"
@@ -38,106 +42,285 @@
     />
 
     <style>
+      :root {
+        --primary-color: #0f1926;
+        --secondary-color: #28a745;
+        --accent-color: #ff5733;
+        --telegram-color: #0088cc;
+        --text-color: #333;
+        --light-text: #777;
+        --white: #fff;
+        --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        --star-color: #ffd700;
+      }
+
+      /* Reset y Estilos Base */
+      html {
+        scroll-padding-top: 80px;
+      }
+      html,
+      body {
+        overflow-x: hidden;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        position: relative;
+      }
+
       body {
         font-family: "Montserrat", sans-serif;
         background-color: #f4f7f6;
-        color: #333;
+        color: var(--text-color);
+      }
+
+      .container {
+        width: 100%;
+        max-width: 100%;
+        padding-left: 15px;
+        padding-right: 15px;
+        box-sizing: border-box;
       }
 
       h2,
       h3 {
-        margin-bottom: 30px; /* Aumenta el espacio debajo de los títulos */
+        margin-bottom: 30px;
       }
 
+      /* Header Styles */
       .header {
         text-align: center;
-        padding: 50px 0;
-        background-color: #0f1926;
-        color: #fff;
-        min-height: 100vh; /* Ocupa el 100% de la altura de la pantalla */
+        background-color: var(--primary-color);
+        color: var(--white);
+        min-height: 100vh;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        padding-left: 10%;
-        padding-right: 10%;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 50px 20px;
+        padding-top: calc(76px + 2rem); /* navbar height + padding extra */
       }
 
       .header h1 {
         margin-top: 20px;
         font-weight: 700;
-        font-size: 2.5rem; /* Aumenta el tamaño del título */
+        font-size: 2.5rem;
       }
 
       .header p {
-        font-size: 1.4rem; /* Aumenta el tamaño del texto */
+        font-size: 1.4rem;
         margin-bottom: 30px;
-        max-width: 800px; /* Limita la extensión del texto */
+        max-width: 800px;
         text-align: center;
       }
+
       .header img {
         width: 150px;
-        max-width: 100%; /* Asegura que la imagen no se extienda más allá de su contenedor */
-        height: auto; /* Mantiene la proporción de la imagen */
+        max-width: 100%;
+        height: auto;
         border-radius: 50%;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
       }
 
+      .navbar {
+        padding: 1rem 2rem;
+        transition: all 0.3s ease;
+      }
+
+      .navbar {
+        background-color: var(--primary-color);
+        transition: all 0.3s ease;
+      }
+      .navbar-brand {
+        font-weight: 700;
+      }
+
+      .nav-link {
+        margin: 0 10px;
+        transition: color 0.3s ease;
+      }
+
+      .nav-link:hover {
+        color: var(--accent-color) !important;
+      }
+
+      .nav-link.active {
+        color: var(--accent-color) !important;
+        font-weight: bold;
+      }
+
+      /* Navigation Buttons */
+      .navigation-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 30px;
+      }
+
+      .nav-button {
+        background-color: var(--white);
+        color: var(--primary-color);
+        border: none;
+        border-radius: 8px;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow);
+      }
+
+      .nav-button i {
+        font-size: 1.2rem;
+      }
+
+      .nav-button:hover {
+        transform: translateY(-2px);
+        background-color: var(--accent-color);
+        color: var(--white);
+      }
+
+      #newsCarousel,
+      #testimonialCarousel,
+      #botSection,
+      #contactSection {
+        scroll-margin-top: 80px; /* Esto asegura que haya espacio suficiente al hacer scroll */
+        padding-top: 40px; /* Añade espacio visual en la parte superior */
+      }
+
+      /* Carousel Styles */
       .carousel {
-        min-height: 100vh; /* Ocupa el 100% de la altura de la pantalla */
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
         display: flex;
         align-items: center;
       }
 
+      .carousel-inner {
+        width: 100%;
+      }
+
       .carousel img {
-        max-height: 400px; /* Aumenta la altura de las imágenes en el carrusel */
+        max-height: 400px;
+        width: 100%;
+        height: auto;
         object-fit: cover;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
       }
 
+      /* Testimonials Section */
       .container.my-5 {
-        padding-top: 60px;
-        padding-bottom: 60px;
-      }
-
-      .container.my-5 .row .col-md-4 {
-        margin-bottom: 30px;
+        padding: 60px 0;
       }
 
       .blockquote {
-        background-color: #fff;
+        background-color: var(--white);
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        border-left: 5px solid #0f1926;
+        box-shadow: var(--shadow);
+        border-left: 5px solid var(--primary-color);
         min-height: 180px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        margin-bottom: 20px;
+      }
+
+      .blockquote p {
+        flex-grow: 1;
       }
 
       .blockquote-footer {
         margin-top: 10px;
         font-size: 0.9rem;
-        color: #777;
+        color: var(--light-text);
       }
 
-      .bot-section {
-        padding: 50px 0;
-        text-align: center;
-        background-color: #fff;
+      /* Testimonial Stars */
+      .testimonial-stars {
+        color: var(--star-color);
+        margin: 10px 0;
+        font-size: 18px;
+        display: block;
       }
+
+      .testimonial-stars i {
+        margin-right: 2px;
+        text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.1);
+        display: inline-block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+
+      .testimonial-stars .far.fa-star {
+        color: #ddd;
+      }
+
+      .testimonial-stars .fas.fa-star-half-alt {
+        color: var(--star-color);
+      }
+
+      /* Testimonial Carousel */
+      #testimonialCarousel {
+        background-color: transparent;
+        padding: 20px 0;
+        margin-bottom: 50px;
+      }
+
+      #testimonialCarousel .carousel-control-prev,
+      #testimonialCarousel .carousel-control-next {
+        width: 40px;
+        height: 40px;
+        background-color: var(--primary-color);
+        border-radius: 50%;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0.8;
+      }
+
+      #testimonialCarousel .carousel-indicators {
+        bottom: -50px;
+      }
+
+      #testimonialCarousel .carousel-indicators li {
+        background-color: var(--primary-color);
+      }
+
+      /* Bot Section */
+      .bot-section {
+        padding: 50px 15px;
+        text-align: center;
+        background-color: var(--white);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+
+      .bot-section .row {
+        margin: 0;
+      }
+
       .bot-section img {
         width: 120px;
         margin-bottom: 20px;
         border-radius: 50%;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow);
       }
 
+      /* Contact Section */
       .contact-section {
-        padding: 50px 0;
-        background-color: #0f1926;
-        color: #fff;
+        padding: 50px 15px;
+        background-color: var(--primary-color);
+        color: var(--white);
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
       }
 
       .contact-section h2 {
@@ -145,18 +328,22 @@
         font-weight: 700;
       }
 
-      .contact-section .form-control {
-        border-radius: 0;
+      .contact-section form {
+        max-width: 500px;
+        margin: 0 auto;
       }
 
-      .contact-section form {
-        max-width: 500px; /* Reduce el ancho del formulario */
-        margin: 0 auto; /* Centra el formulario */
+      /* Button Styles */
+      .btn,
+      .btn-telegram,
+      .scroll-button,
+      .form-control {
+        border-radius: 8px !important;
       }
 
       .btn-primary {
-        background-color: #28a745;
-        border-color: #28a745;
+        background-color: var(--secondary-color);
+        border-color: var(--secondary-color);
       }
 
       .btn-primary:hover {
@@ -165,49 +352,60 @@
       }
 
       .btn-telegram {
-        background-color: #0088cc;
-        border-color: #0088cc;
-        color: #fff;
+        background-color: var(--telegram-color);
+        border-color: var(--telegram-color);
+        color: var(--white);
         display: inline-flex;
         align-items: center;
         justify-content: center;
         transition: background-color 0.3s ease, transform 0.2s ease;
         padding: 12px 20px;
-        font-size: 1.2rem; /* Aumenta el tamaño del texto en el botón */
-        margin-bottom: 20px; /* Espacio adicional debajo del botón */
-      }
-
-      .btn-telegram i {
-        margin-left: 8px;
+        font-size: 1.2rem;
+        margin-bottom: 20px;
       }
 
       .btn-telegram:hover {
         background-color: #0077aa;
-        border-color: #0077aa;
         transform: scale(1.05);
       }
 
       .btn-telegram:active {
         background-color: #006699;
-        border-color: #006699;
         transform: scale(0.95);
       }
 
+      .scroll-button {
+        margin-top: 20px;
+        padding: 10px 20px;
+        font-size: 1.1rem;
+        background-color: var(--accent-color);
+        border: none;
+        color: var(--white);
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+      }
+
+      .scroll-button:hover {
+        background-color: #e14a2a;
+        transform: scale(1.05);
+      }
+
+      /* Telegram Button */
       .telegram-button {
         z-index: 99;
         position: fixed;
-        bottom: 120px;
+        bottom: 20px;
         right: 20px;
         width: 43px;
         height: 43px;
-        background-color: white;
+        background-color: var(--white);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #fff;
+        color: var(--white);
         font-size: 24px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        box-shadow: var(--shadow);
         cursor: pointer;
         transition: background-color 0.3s ease;
       }
@@ -226,49 +424,194 @@
         transform: rotate(360deg);
       }
 
-      .scroll-button {
-        margin-top: 20px;
-        padding: 10px 20px;
-        font-size: 1.1rem;
-        background-color: #ff5733;
+      .footer {
+        background-color: var(--primary-color);
+        color: var(--white);
+        padding: 60px 0 30px;
+        margin-top: 60px;
+      }
+
+      .footer-col {
+        margin-bottom: 30px;
+      }
+
+      .footer h5 {
+        color: var(--white);
+        font-weight: 700;
+        margin-bottom: 20px;
+        font-size: 1.2rem;
+      }
+
+      .footer-links {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .footer-links li {
+        margin-bottom: 12px;
+      }
+
+      .footer-links a {
+        color: var(--white);
+        text-decoration: none;
+        transition: color 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .footer-links a:hover {
+        color: var(--accent-color);
+      }
+
+      .footer-contact {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .footer-contact li {
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .social-links {
+        display: flex;
+        gap: 15px;
+      }
+
+      .social-link {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--white);
+        text-decoration: none;
+        transition: all 0.3s ease;
+      }
+
+      .social-link:hover {
+        transform: translateY(-3px);
+        color: var(--white);
+      }
+
+      .social-link.telegram:hover {
+        background-color: #0088cc;
+      }
+
+      .social-link.twitter:hover {
+        background-color: #1da1f2;
+      }
+
+      .social-link.linkedin:hover {
+        background-color: #0077b5;
+      }
+
+      .social-link.facebook:hover {
+        background-color: #4267b2;
+      }
+
+      .newsletter .input-group {
+        margin-top: 10px;
+      }
+
+      .newsletter .form-control {
+        border-radius: 8px 0 0 8px;
         border: none;
-        color: #fff;
-        cursor: pointer;
-        transition: background-color 0.3s ease, transform 0.2s ease;
       }
 
-      .scroll-button:hover {
-        background-color: #e14a2a;
-        transform: scale(1.05);
+      .newsletter .btn {
+        border-radius: 0 8px 8px 0;
+        padding: 0.375rem 1rem;
       }
 
+      .footer-bottom {
+        margin-top: 40px;
+      }
+
+      .footer-bottom hr {
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .footer-bottom a {
+        color: var(--white);
+        text-decoration: none;
+        transition: color 0.3s ease;
+      }
+
+      .footer-bottom a:hover {
+        color: var(--accent-color);
+      }
+
+      /* Responsive Styles */
       @media (max-width: 768px) {
         .header img {
           width: 120px;
         }
-        .header {
-          padding-left: 5%;
-          padding-right: 5%;
-        }
+
         .carousel img {
-          max-height: 250px; /* Ajusta la altura para dispositivos móviles */
+          max-height: 250px;
         }
+
         .bot-section img {
           width: 100px;
         }
+
         .contact-section h2 {
           font-size: 1.5rem;
         }
-      }
 
-      .telegram-button.white-bg {
-        background-color: white;
+        .row {
+          margin: 0;
+        }
+
+        .col-md-4,
+        .col-md-6 {
+          padding: 0 15px;
+        }
+
+        .blockquote {
+          margin: 10px 0;
+        }
+        .navigation-buttons {
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .nav-button {
+          width: 80%;
+          justify-content: center;
+        }
+        .footer-col {
+          text-align: center;
+        }
+
+        .footer-links a,
+        .footer-contact li {
+          justify-content: center;
+        }
+
+        .social-links {
+          justify-content: center;
+        }
+
+        .footer-bottom .text-right {
+          text-align: center !important;
+          margin-top: 15px;
+        }
       }
     </style>
   </head>
   <body>
     <!-- Encabezado -->
-    <div class="header">
+    <div class="header" id="inicio">
       <img src="/img/Perfil_Grupo.jpg" alt="Imagen del Grupo" />
       <h1>Info Law</h1>
       <p>
@@ -285,6 +628,27 @@
       <button class="scroll-button" onclick="scrollToSection('botSection')">
         Conocer más
       </button>
+      <div class="navigation-buttons">
+        <button class="nav-button" onclick="scrollToSection('newsCarousel')">
+          <i class="fas fa-newspaper"></i>
+          Noticias
+        </button>
+        <button
+          class="nav-button"
+          onclick="scrollToSection('testimonialCarousel')"
+        >
+          <i class="fas fa-comments"></i>
+          Testimonios
+        </button>
+        <button class="nav-button" onclick="scrollToSection('botSection')">
+          <i class="fas fa-robot"></i>
+          Bots
+        </button>
+        <button class="nav-button" onclick="scrollToSection('contactSection')">
+          <i class="fas fa-envelope"></i>
+          Contacto
+        </button>
+      </div>
     </div>
 
     <!-- Carrusel de noticias -->
@@ -335,30 +699,181 @@
     </div>
 
     <!-- Comentarios de usuarios -->
-    <div class="container my-5">
+    <div class="container my-5" id="testimonialCarousel">
       <h2 class="text-center">Comentarios de Usuarios</h2>
-      <div class="row">
-        <div class="col-md-4">
-          <blockquote class="blockquote">
-            <p class="mb-0">
-              "El mejor grupo para mantenerse actualizado con la normativa."
-            </p>
-            <footer class="blockquote-footer">Juan Bert</footer>
-          </blockquote>
+      <div class="carousel slide" data-ride="carousel">
+        <ol class="carousel-indicators">
+          <li
+            data-target="#testimonialCarousel"
+            data-slide-to="0"
+            class="active"
+          ></li>
+          <li data-target="#testimonialCarousel" data-slide-to="1"></li>
+          <li data-target="#testimonialCarousel" data-slide-to="2"></li>
+        </ol>
+        <div class="carousel-inner">
+          <div class="carousel-item active">
+            <div class="row">
+              <div class="col-md-4">
+                <blockquote class="blockquote">
+                  <p class="mb-0">
+                    "El mejor grupo para mantenerse actualizado con la
+                    normativa."
+                  </p>
+                  <div class="testimonial-stars">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                  </div>
+                  <footer class="blockquote-footer">Juan Bert</footer>
+                </blockquote>
+              </div>
+              <div class="col-md-4">
+                <blockquote class="blockquote">
+                  <p class="mb-0">
+                    "Los bots hacen el trabajo mucho más fácil."
+                  </p>
+                  <div class="testimonial-stars">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="far fa-star"></i>
+                  </div>
+                  <footer class="blockquote-footer">Afredo Visconte</footer>
+                </blockquote>
+              </div>
+              <div class="col-md-4">
+                <blockquote class="blockquote">
+                  <p class="mb-0">
+                    "Recomendado para cualquier profesional legal."
+                  </p>
+                  <div class="testimonial-stars">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star-half-alt"></i>
+                  </div>
+                  <footer class="blockquote-footer">Javier Fernández</footer>
+                </blockquote>
+              </div>
+            </div>
+          </div>
+          <div class="carousel-item">
+            <div class="row">
+              <div class="col-md-4">
+                <blockquote class="blockquote">
+                  <p class="mb-0">
+                    "La información siempre está actualizada y es muy
+                    relevante."
+                  </p>
+                  <div class="testimonial-stars">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                  </div>
+                  <footer class="blockquote-footer">María González</footer>
+                </blockquote>
+              </div>
+              <div class="col-md-4">
+                <blockquote class="blockquote">
+                  <p class="mb-0">
+                    "Excelente servicio y atención al cliente."
+                  </p>
+                  <div class="testimonial-stars">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                  </div>
+                  <footer class="blockquote-footer">Carlos Ruiz</footer>
+                </blockquote>
+              </div>
+              <div class="col-md-4">
+                <blockquote class="blockquote">
+                  <p class="mb-0">
+                    "Una herramienta indispensable para abogados."
+                  </p>
+                  <div class="testimonial-stars">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="far fa-star"></i>
+                  </div>
+                  <footer class="blockquote-footer">Ana Martínez</footer>
+                </blockquote>
+              </div>
+            </div>
+          </div>
+          <div class="carousel-item">
+            <div class="row">
+              <div class="col-md-4">
+                <blockquote class="blockquote">
+                  <p class="mb-0">"Facilita enormemente el trabajo diario."</p>
+                  <div class="testimonial-stars">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star-half-alt"></i>
+                  </div>
+                  <footer class="blockquote-footer">Pedro Sánchez</footer>
+                </blockquote>
+              </div>
+              <div class="col-md-4">
+                <blockquote class="blockquote">
+                  <p class="mb-0">"Interfaz intuitiva y fácil de usar."</p>
+                  <div class="testimonial-stars">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                  </div>
+                  <footer class="blockquote-footer">Laura Díaz</footer>
+                </blockquote>
+              </div>
+              <div class="col-md-4">
+                <blockquote class="blockquote">
+                  <p class="mb-0">"Soporte técnico excepcional."</p>
+                  <div class="testimonial-stars">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                  </div>
+                  <footer class="blockquote-footer">Roberto López</footer>
+                </blockquote>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="col-md-4">
-          <blockquote class="blockquote">
-            <p class="mb-0">"Los bots hacen el trabajo mucho más fácil."</p>
-            <footer class="blockquote-footer">Afredo Visconte</footer>
-          </blockquote>
-        </div>
-        <div class="col-md-4">
-          <blockquote class="blockquote">
-            <p class="mb-0">"Recomendado para cualquier profesional legal."</p>
-            <footer class="blockquote-footer">Javier Fernández</footer>
-          </blockquote>
-        </div>
-        <!-- Agregar más comentarios aquí -->
+        <a
+          class="carousel-control-prev"
+          href="#testimonialCarousel"
+          role="button"
+          data-slide="prev"
+        >
+          <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+          <span class="sr-only">Anterior</span>
+        </a>
+        <a
+          class="carousel-control-next"
+          href="#testimonialCarousel"
+          role="button"
+          data-slide="next"
+        >
+          <span class="carousel-control-next-icon" aria-hidden="true"></span>
+          <span class="sr-only">Siguiente</span>
+        </a>
       </div>
     </div>
 
@@ -380,7 +895,7 @@
     </div>
 
     <!-- Formulario de Contacto -->
-    <div class="contact-section">
+    <div id="contactSection" class="contact-section">
       <div class="container">
         <h2 class="text-center">Contáctanos</h2>
         <form>
@@ -420,16 +935,291 @@
       </svg>
     </a>
 
+    <!-- Navbar fija -->
+    <nav
+      class="navbar navbar-expand-lg fixed-top navbar-dark"
+      style="background-color: var(--primary-color)"
+    >
+      <a class="navbar-brand" href="#">Info Law</a>
+      <button
+        class="navbar-toggler"
+        type="button"
+        data-toggle="collapse"
+        data-target="#navbarNav"
+        aria-controls="navbarNav"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="#inicio"
+              onclick="scrollToSection('inicio')"
+              >Inicio</a
+            >
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="#newsCarousel"
+              onclick="scrollToSection('newsCarousel')"
+              >Noticias</a
+            >
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="#testimonialCarousel"
+              onclick="scrollToSection('testimonialCarousel')"
+              >Testimonios</a
+            >
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="#botSection"
+              onclick="scrollToSection('botSection')"
+              >Bots</a
+            >
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="#contactSection"
+              onclick="scrollToSection('contactSection')"
+              >Contacto</a
+            >
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="row">
+          <!-- Columna de Navegación -->
+          <div class="col-md-3 footer-col">
+            <h5>Navegación</h5>
+            <ul class="footer-links">
+              <li>
+                <a href="#inicio"><i class="fas fa-home"></i> Inicio</a>
+              </li>
+              <li>
+                <a href="#newsCarousel"
+                  ><i class="fas fa-newspaper"></i> Noticias</a
+                >
+              </li>
+              <li>
+                <a href="#testimonialCarousel"
+                  ><i class="fas fa-comments"></i> Testimonios</a
+                >
+              </li>
+              <li>
+                <a href="#botSection"><i class="fas fa-robot"></i> Bots</a>
+              </li>
+              <li>
+                <a href="#contactSection"
+                  ><i class="fas fa-envelope"></i> Contacto</a
+                >
+              </li>
+            </ul>
+          </div>
+
+          <!-- Columna de Bots -->
+          <div class="col-md-3 footer-col">
+            <h5>Nuestros Bots</h5>
+            <ul class="footer-links">
+              <li>
+                <a href="#"><i class="fas fa-robot"></i> Law Assistant</a>
+              </li>
+              <li>
+                <a href="#"><i class="fas fa-robot"></i> Law Bot</a>
+              </li>
+            </ul>
+            <p class="mt-3">
+              Herramientas automatizadas para facilitar tu trabajo legal
+            </p>
+          </div>
+
+          <!-- Columna de Contacto -->
+          <div class="col-md-3 footer-col">
+            <h5>Contacto</h5>
+            <ul class="footer-contact">
+              <li><i class="fas fa-envelope"></i> info@infolaw.com</li>
+              <li><i class="fab fa-telegram"></i> @lawinfochatbot</li>
+              <li><i class="fas fa-phone"></i> +1234567890</li>
+            </ul>
+          </div>
+
+          <!-- Columna de Redes Sociales -->
+          <div class="col-md-3 footer-col">
+            <h5>Síguenos</h5>
+            <div class="social-links">
+              <a href="#" class="social-link telegram">
+                <i class="fab fa-telegram"></i>
+              </a>
+              <a href="#" class="social-link twitter">
+                <i class="fab fa-twitter"></i>
+              </a>
+              <a href="#" class="social-link linkedin">
+                <i class="fab fa-linkedin"></i>
+              </a>
+              <a href="#" class="social-link facebook">
+                <i class="fab fa-facebook"></i>
+              </a>
+            </div>
+            <div class="newsletter mt-3">
+              <h6>Suscríbete a nuestro newsletter</h6>
+              <div class="input-group">
+                <input
+                  type="email"
+                  class="form-control"
+                  placeholder="Tu email"
+                />
+                <div class="input-group-append">
+                  <button class="btn btn-primary" type="button">
+                    <i class="fas fa-paper-plane"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Copyright -->
+        <div class="footer-bottom">
+          <hr />
+          <div class="row">
+            <div class="col-md-6">
+              <p>&copy; 2025 Info Law. Todos los derechos reservados.</p>
+            </div>
+            <div class="col-md-6 text-right">
+              <a href="#">Términos y Condiciones</a>
+              <span class="mx-2">|</span>
+              <a href="#">Política de Privacidad</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
     <!-- Scripts de Bootstrap -->
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
     <script>
-      function scrollToSection(sectionId) {
-        document
-          .getElementById(sectionId)
-          .scrollIntoView({ behavior: "smooth" });
-      }
+      document.addEventListener("DOMContentLoaded", function () {
+        const navbar = document.querySelector(".navbar");
+        const navbarHeight = navbar.offsetHeight;
+
+        // Función para determinar qué sección está visible
+        function isInViewport(element, offset = 100) {
+          const rect = element.getBoundingClientRect();
+          return (
+            rect.top <= offset + navbarHeight &&
+            rect.bottom >= offset + navbarHeight
+          );
+        }
+
+        function updateActiveNavItem() {
+          const sections = {
+            inicio: document.querySelector(".header"),
+            newsCarousel: document.getElementById("newsCarousel"),
+            testimonialCarousel: document.getElementById("testimonialCarousel"),
+            botSection: document.getElementById("botSection"),
+            contactSection: document.getElementById("contactSection"),
+          };
+
+          // Actualizar estilo del navbar
+          if (window.scrollY > 50) {
+            navbar.style.backgroundColor = "var(--primary-color)";
+            navbar.style.boxShadow = "var(--shadow)";
+          } else {
+            navbar.style.backgroundColor = "transparent";
+            navbar.style.boxShadow = "none";
+          }
+
+          // Encontrar la sección visible actual
+          let currentSection = "inicio";
+          Object.entries(sections).forEach(([id, element]) => {
+            if (element && isInViewport(element)) {
+              currentSection = id;
+            }
+          });
+
+          // Actualizar navegación
+          document.querySelectorAll(".nav-link").forEach((link) => {
+            const href = link.getAttribute("href").substring(1);
+            if (href === currentSection) {
+              link.classList.add("active");
+            } else {
+              link.classList.remove("active");
+            }
+          });
+        }
+
+        // Función de scroll mejorada
+        function scrollToSection(sectionId) {
+          const section =
+            document.getElementById(sectionId) ||
+            document.querySelector(`.${sectionId}`);
+          if (section) {
+            const offset = 80; // offset fijo para todas las secciones
+            const elementPosition = section.getBoundingClientRect().top;
+            const offsetPosition =
+              elementPosition + window.pageYOffset - offset;
+
+            window.scrollTo({
+              top: offsetPosition,
+              behavior: "smooth",
+            });
+
+            // Actualizar el ítem activo después del scroll
+            setTimeout(() => {
+              updateActiveNavItem();
+            }, 100);
+          }
+        }
+
+        // Event Listeners
+        window.addEventListener("scroll", updateActiveNavItem);
+
+        // Event listener para los botones de navegación
+        document.querySelectorAll(".nav-button").forEach((button) => {
+          button.addEventListener("click", (e) => {
+            const targetId = e.currentTarget
+              .getAttribute("onclick")
+              .match(/'([^']+)'/)[1];
+            e.preventDefault();
+            scrollToSection(targetId);
+          });
+        });
+
+        // Event listener para los links del navbar
+        document.querySelectorAll(".nav-link").forEach((link) => {
+          link.addEventListener("click", (e) => {
+            e.preventDefault();
+            const targetId = link.getAttribute("href").substring(1);
+            scrollToSection(targetId);
+          });
+        });
+
+        // Inicializar estado activo
+        updateActiveNavItem();
+      });
+    </script>
+
+    <script>
+      // Configuración del carrusel de testimonios
+      $("#testimonialCarousel").carousel({
+        interval: 5000, // Cambia cada 5 segundos
+        touch: true, // Permite deslizar en dispositivos táctiles
+      });
     </script>
   </body>
 </html>
