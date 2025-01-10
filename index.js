@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 const mongoose = require("mongoose");
-const { port, mongoUri } = require("./config/env");
+const { port, mongoUri, host } = require("./config/env");
 const bot = require("./src/bot"); // Importar la lógica del bot
 const subscriptionRoutes = require("./src/routes/subscription"); // Importar las rutas de suscripción
 const successRoutes = require("./src/routes/success"); // Importar la ruta de éxito
@@ -49,7 +49,7 @@ app.use((req, res, next) => {
 });
 
 // Iniciar el servidor
-app.listen(port, async () => {
+app.listen(port, host, async () => {
   try {
     logger.info(
       `Servidor corriendo en el puerto ${port} en modo ${process.env.NODE_ENV}`
