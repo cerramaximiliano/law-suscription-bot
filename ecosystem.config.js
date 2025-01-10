@@ -16,7 +16,7 @@ module.exports = {
       env: {
         PORT: 8000,
         NODE_ENV: "production",
-        HOST: "0.0.0.0",
+        HOST: "127.0.0.1",
       },
       node_args: "--dns-result-order=ipv4first",
     },
