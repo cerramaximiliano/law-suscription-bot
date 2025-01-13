@@ -347,22 +347,27 @@
         padding: 20px;
         background: linear-gradient(145deg, var(--primary-color), #1a2d42);
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        min-height: 90px; /* Asegura altura mínima consistente */
       }
 
       .bot-header img {
         width: 50px;
         height: 50px;
+        min-width: 50px; /* Evita que la imagen se comprima */
+        min-height: 50px; /* Evita que la imagen se comprima */
         border-radius: 50%;
         margin: 0;
         border: 3px solid var(--white);
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        object-fit: cover; /* Mantiene la proporción de la imagen */
       }
 
       .bot-info {
         margin-left: 15px;
         text-align: left;
+        flex: 1; /* Permite que el texto ocupe el espacio restante */
+        min-width: 0; /* Evita que el texto empuje la imagen */
       }
-
       .bot-info h3 {
         margin: 0;
         font-size: 1.2rem;
@@ -975,6 +980,26 @@
         .message {
           max-width: 90%;
         }
+
+        .bot-header {
+          padding: 15px;
+          min-height: 80px;
+        }
+
+        .bot-header img {
+          width: 40px;
+          height: 40px;
+          min-width: 40px;
+          min-height: 40px;
+        }
+
+        .bot-info h3 {
+          font-size: 1rem;
+        }
+
+        .bot-status {
+          font-size: 0.8rem;
+        }
       }
     </style>
   </head>
@@ -1272,7 +1297,9 @@
                         📁 Gestionar Expedientes
                       </button>
                       <button class="menu-option">📅 Agendar Citas</button>
-                      <button class="menu-option">📋 Seguimiento de Envíos</button>
+                      <button class="menu-option">
+                        📋 Seguimiento de Envíos
+                      </button>
                     </div>
                   </div>
                 </div>

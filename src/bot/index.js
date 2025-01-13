@@ -1,14 +1,25 @@
 const { Telegraf, session } = require("telegraf");
 const { botToken } = require("../../config/env");
-const bot = new Telegraf(botToken);
-require("./middlewares")(bot);
+
 const trackingMiddleware = require("./middlewares");
 const Tracking = require("../models/trackingModel");
-const {logger} = require("../config/logger");
+const { logger } = require("../config/logger");
 const Subscription = require("../models/subscriptionModel");
-const { saveMessageIdAndDate } = require("../controllers/subscriptionController");
+const {
+  saveMessageIdAndDate,
+} = require("../controllers/subscriptionController");
 const suscriptionsTopic = process.env.TOPIC_SUSCRIPTIONS;
 
+const bot = new Telegraf(botToken, {
+  telegram: {
+    apiRequestTimeout: 30000,
+    apiRetries: 3,
+    apiOption: {
+      timeout: 30000,
+    },
+  },
+});
+require("./middlewares")(bot);
 
 async function editMessageWithButtons(ctx, text, buttons) {
   try {
@@ -110,7 +121,7 @@ bot.start(async (ctx) => {
 bot.on("text", async (ctx) => {
   const userId = ctx.from.id;
   const trackingType = ctx.session.trackingType;
-  console.log(trackingType)
+  console.log(trackingType);
   if (!ctx.session) {
     ctx.session = {}; // Inicializa la sesión si no está definida
   }
@@ -169,7 +180,7 @@ bot.on("text", async (ctx) => {
               ],
             ]
           );
-          console.log(sentMessage)
+          console.log(sentMessage);
           //await saveMessageIdAndDate(userId, sentMessage.message_id);
           const saveUnverifiedTracking = await Tracking.create({
             userId: ctx.from.id,
@@ -179,7 +190,6 @@ bot.on("text", async (ctx) => {
             isValid: false,
             alias: alias,
           });
-
         }
 
         // Eliminar el mensaje que contiene el número de 9 dígitos ingresado por el usuario

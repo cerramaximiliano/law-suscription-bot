@@ -36,7 +36,28 @@ mongoose
   });
 
 // Iniciar el bot de Telegram
-bot.launch();
+const initBot = async () => {
+  try {
+    // Verificar la conexión antes de iniciar
+    await bot.telegram.getMe();
+    logger.info("Bot conectado exitosamente");
+
+    // Iniciar el polling con opciones
+    await bot.launch({
+      polling: {
+        timeout: 30,
+        limit: 100,
+      },
+    });
+  } catch (error) {
+    logger.error("Error al iniciar el bot:", error);
+    console.log(error);
+    // Reintentar la conexión después de un delay
+    setTimeout(initBot, 5000);
+  }
+};
+
+initBot();
 
 // Rutas para suscripción y éxito
 app.use("/subscription", subscriptionRoutes);
