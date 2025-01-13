@@ -7,6 +7,7 @@ const subscriptionRoutes = require("./src/routes/subscription"); // Importar las
 const successRoutes = require("./src/routes/success"); // Importar la ruta de éxito
 const webhookRoutes = require("./src/routes/webhook");
 const tracking = require("./src/routes/tracking");
+const calculatorRoutes = require("./src/routes/calculator");
 const { logger } = require("./src/config/logger");
 
 const app = express();
@@ -42,6 +43,7 @@ app.use("/subscription", subscriptionRoutes);
 app.use("/success", successRoutes);
 app.use("/webhook", webhookRoutes);
 app.use("/tracking", tracking);
+app.use("/calculator", calculatorRoutes);
 
 // Middleware para manejar rutas no encontradas y servir la página 404
 app.use((req, res, next) => {

@@ -1,7 +1,8 @@
 // routes/dismissal.routes.js
 const express = require('express');
+const { calculateDismissal } = require('../controllers/calculatorController');
 const router = express.Router();
-const { calculateDismissal } = require('../controllers/dismissalController');
+
 
 // Middleware para validar el formato de las fechas
 const validateDates = (req, res, next) => {
@@ -31,7 +32,7 @@ const validateRemuneration = (req, res, next) => {
 };
 
 // Ruta principal para el cálculo de despido
-router.post(
+router.get(
     '/calculate', 
     [validateDates, validateRemuneration],
     calculateDismissal
