@@ -352,7 +352,7 @@ exports.handleSubscriptionInfo = async (ctx) => {
 exports.handleTrackingOptions = async (ctx) => {
   const userId = ctx.from.id;
   try {
-    const newText = "Selecciona una opción de tracking:";
+    const newText = "Selecciona una opción:";
     const currentText = ctx.update.callback_query.message.text;
 
     // Verificar si el contenido del mensaje ha cambiado
@@ -360,14 +360,21 @@ exports.handleTrackingOptions = async (ctx) => {
       const sentMessage = await ctx.editMessageText(newText, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: "Tracking de Causas", callback_data: "tracking_causas" }],
+            [
+              {
+                text: "Seguimiento de Causas",
+                callback_data: "tracking_causas",
+              },
+            ],
             [
               {
                 text: "Tracking de Telegramas/Cartas",
                 callback_data: "tracking_telegramas",
               },
             ],
-            [{ text: "Volver", callback_data: "back_to_main" }],
+            [{ text: "Cálculos Legales", callback_data: "calculos_legales" }][
+              { text: "Volver", callback_data: "back_to_main" }
+            ],
           ],
         },
       });
