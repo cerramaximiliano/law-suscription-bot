@@ -356,7 +356,29 @@ bot.action(
   trackingMiddleware,
   require("../controllers/subscriptionBotController").handleTrackingTelegramas
 );
+bot.action(
+  "calculos_legales",
+  trackingMiddleware,
+  require("../controllers/subscriptionBotController").handleCalculosLegales
+);
+// Manejadores para los botones de cálculos
+bot.action(
+  "calculo_despido",
+  trackingMiddleware,
+  require("../controllers/subscriptionBotController").handleCalculoDespido
+);
 
+bot.action(
+  "calculo_liquidacion",
+  trackingMiddleware,
+  require("../controllers/subscriptionBotController").handleCalculoLiquidacion
+);
+
+bot.action(
+  "calculo_intereses",
+  trackingMiddleware,
+  require("../controllers/subscriptionBotController").handleCalculoIntereses
+);
 bot.action("delete_tracking_menu", async (ctx) => {
   await require("../controllers/subscriptionBotController").handleDeleteTrackingMenu(
     ctx
