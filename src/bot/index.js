@@ -121,7 +121,7 @@ bot.start(async (ctx) => {
 bot.on("text", async (ctx) => {
   const userId = ctx.from.id;
   const trackingType = ctx.session.trackingType;
-  console.log(trackingType);
+  console.log("trackingType", trackingType);
   if (!ctx.session) {
     ctx.session = {}; // Inicializa la sesión si no está definida
   }
@@ -311,6 +311,19 @@ bot.on("text", async (ctx) => {
       );
     }
   }
+
+  if (
+    ctx.session &&
+    ctx.session.waitingFor &&
+    (ctx.session.waitingFor.includes("Despido") ||
+      ctx.session.waitingFor.includes("Liquidacion") ||
+      ctx.session.waitingFor.includes("Intereses"))
+  ) {
+    await require("../controllers/bot/subscriptionBotController").handleCalculosText(
+      ctx
+    );
+    return;
+  }
 });
 
 // Acción para el botón de suscripción
@@ -356,17 +369,29 @@ bot.action(
   trackingMiddleware,
   require("../controllers/subscriptionBotController").handleTrackingTelegramas
 );
+
+/* CALCULOS */
 bot.action(
   "calculos_legales",
   trackingMiddleware,
-  require("../controllers/subscriptionBotController").handleCalculosLegales
+  require("../controllers/bot/calculatorBotController").handleCalculosLegales
 );
 // Manejadores para los botones de cálculos
 bot.action(
   "calculo_despido",
   trackingMiddleware,
-  require("../controllers/subscriptionBotController").handleCalculoDespido
+  require("../controllers/bot/calculatorBotController").handleCalculoDespido
 );
+
+bot.action(
+  /^calcular_ind_/,
+  trackingMiddleware,
+  require("../controllers/bot/calculatorBotController")
+    .handleCalcularIndemnizacion
+);
+
+
+/*  */
 
 bot.action(
   "calculo_liquidacion",

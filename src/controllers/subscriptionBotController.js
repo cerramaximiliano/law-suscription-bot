@@ -1,9 +1,11 @@
 const bot = require("../bot");
 const Subscription = require("../models/subscriptionModel");
+const Indemnizacion = require("../models/indeminzacionModel");
+const Tracking = require("../models/trackingModel");
 const moment = require("moment");
 const { stripeSecretKey } = require("../../config/env");
 const Stripe = require("stripe");
-const Tracking = require("../models/trackingModel");
+
 const stripe = Stripe(stripeSecretKey);
 const { getTrackingTelegramas } = require("../controllers/trackingController");
 const { logger } = require("../config/logger");
@@ -360,18 +362,19 @@ exports.handleTrackingOptions = async (ctx) => {
       const sentMessage = await ctx.editMessageText(newText, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: "Seguimiento de Causas", callback_data: "tracking_causas" }],
+            [
+              {
+                text: "Seguimiento de Causas",
+                callback_data: "tracking_causas",
+              },
+            ],
             [
               {
                 text: "Tracking de Telegramas/Cartas",
                 callback_data: "tracking_telegramas",
               },
             ],
-            [
-              {text: "Cálculos Legales", 
-                callback_data: "calculos_legales"
-              }
-            ],
+            [{ text: "Cálculos Legales", callback_data: "calculos_legales" }],
             [{ text: "Volver", callback_data: "back_to_main" }],
           ],
         },
@@ -391,270 +394,8 @@ exports.handleTrackingOptions = async (ctx) => {
     }
   }
 };
-exports.handleCalculosLegales = async (ctx) => {
-  const userId = ctx.from.id;
-  try {
-    const sentMessage = await ctx.editMessageText("Seleccione la opción de cálculo deseada:", {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Cálculo Despido", callback_data: "calculo_despido" }],
-          [{ text: "Cálculo Liquidación Final", callback_data: "calculo_liquidacion" }],
-          [{ text: "Cálculo de Intereses", callback_data: "calculo_intereses" }],
-          [{ text: "Volver", callback_data: "tracking_options" }]
-        ]
-      }
-    });
-    await saveMessageIdAndDate(userId, sentMessage.message_id);
-  } catch (error) {
-    logger.error("Error al mostrar opciones de cálculos legales:", error);
-    await ctx.reply("Hubo un problema al mostrar las opciones de cálculo. Por favor, intenta nuevamente.");
-  }
-};
-exports.handleCalculoDespido = async (ctx) => {
-  const userId = ctx.from.id;
-  try {
-    if (!ctx.session) {
-      ctx.session = {};
-    }
 
-    // Iniciar el flujo de cálculo de despido
-    ctx.session.calculoDespidoState = {
-      step: 1,
-      data: {}
-    };
-
-    const sentMessage = await ctx.editMessageText(
-      "Por favor, ingrese el sueldo bruto mensual del empleado:",
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Cancelar", callback_data: "calculos_legales" }]
-          ]
-        }
-      }
-    );
-    await saveMessageIdAndDate(userId, sentMessage.message_id);
-    
-    // Configurar el estado de espera
-    ctx.session.waitingFor = 'sueldoBrutoDespido';
-  } catch (error) {
-    logger.error("Error en cálculo de despido:", error);
-    await ctx.reply("Hubo un problema al procesar el cálculo. Por favor, intente nuevamente.");
-  }
-};
-
-exports.handleCalculoLiquidacion = async (ctx) => {
-  const userId = ctx.from.id;
-  try {
-    if (!ctx.session) {
-      ctx.session = {};
-    }
-
-    // Iniciar el flujo de cálculo de liquidación
-    ctx.session.calculoLiquidacionState = {
-      step: 1,
-      data: {}
-    };
-
-    const sentMessage = await ctx.editMessageText(
-      "Por favor, ingrese el sueldo bruto mensual del empleado:",
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Cancelar", callback_data: "calculos_legales" }]
-          ]
-        }
-      }
-    );
-    await saveMessageIdAndDate(userId, sentMessage.message_id);
-    
-    // Configurar el estado de espera
-    ctx.session.waitingFor = 'sueldoBrutoLiquidacion';
-  } catch (error) {
-    logger.error("Error en cálculo de liquidación:", error);
-    await ctx.reply("Hubo un problema al procesar el cálculo. Por favor, intente nuevamente.");
-  }
-};
-
-exports.handleCalculoIntereses = async (ctx) => {
-  const userId = ctx.from.id;
-  try {
-    if (!ctx.session) {
-      ctx.session = {};
-    }
-
-    // Iniciar el flujo de cálculo de intereses
-    ctx.session.calculoInteresesState = {
-      step: 1,
-      data: {}
-    };
-
-    const sentMessage = await ctx.editMessageText(
-      "Por favor, ingrese el monto sobre el cual desea calcular los intereses:",
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Cancelar", callback_data: "calculos_legales" }]
-          ]
-        }
-      }
-    );
-    await saveMessageIdAndDate(userId, sentMessage.message_id);
-    
-    // Configurar el estado de espera
-    ctx.session.waitingFor = 'montoIntereses';
-  } catch (error) {
-    logger.error("Error en cálculo de intereses:", error);
-    await ctx.reply("Hubo un problema al procesar el cálculo. Por favor, intente nuevamente.");
-  }
-};
-
-// Función para manejar las respuestas de texto para los cálculos
-exports.handleCalculosText = async (ctx) => {
-  const userId = ctx.from.id;
-  const messageText = ctx.message.text;
-
-  if (!ctx.session || !ctx.session.waitingFor) {
-    return;
-  }
-
-  try {
-    switch (ctx.session.waitingFor) {
-      case 'sueldoBrutoDespido':
-        await handleSueldoBrutoDespido(ctx, messageText);
-        break;
-      case 'sueldoBrutoLiquidacion':
-        await handleSueldoBrutoLiquidacion(ctx, messageText);
-        break;
-      case 'montoIntereses':
-        await handleMontoIntereses(ctx, messageText);
-        break;
-      // Agregar más casos según sea necesario para cada paso de los flujos
-    }
-  } catch (error) {
-    logger.error("Error procesando respuesta de cálculo:", error);
-    await ctx.reply("Hubo un error procesando su respuesta. Por favor, intente nuevamente.");
-  }
-};
-
-// Funciones auxiliares para manejar cada paso de los cálculos
-async function handleSueldoBrutoDespido(ctx, sueldoBruto) {
-  const userId = ctx.from.id;
-  
-  // Validar que el valor ingresado sea un número
-  const sueldo = parseFloat(sueldoBruto.replace(/[^\d.]/g, ''));
-  if (isNaN(sueldo)) {
-    const sentMessage = await ctx.reply(
-      "Por favor, ingrese un valor numérico válido para el sueldo bruto:",
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Cancelar", callback_data: "calculos_legales" }]
-          ]
-        }
-      }
-    );
-    await saveMessageIdAndDate(userId, sentMessage.message_id);
-    return;
-  }
-
-  // Guardar el sueldo y pasar al siguiente paso
-  ctx.session.calculoDespidoState.data.sueldoBruto = sueldo;
-  ctx.session.calculoDespidoState.step = 2;
-
-  // Preguntar por la antigüedad
-  const sentMessage = await ctx.reply(
-    "¿Cuál es la antigüedad del empleado en años?",
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Cancelar", callback_data: "calculos_legales" }]
-        ]
-      }
-    }
-  );
-  await saveMessageIdAndDate(userId, sentMessage.message_id);
-  ctx.session.waitingFor = 'antiguedadDespido';
-}
-
-async function handleSueldoBrutoLiquidacion(ctx, sueldoBruto) {
-  const userId = ctx.from.id;
-  
-  // Validar que el valor ingresado sea un número
-  const sueldo = parseFloat(sueldoBruto.replace(/[^\d.]/g, ''));
-  if (isNaN(sueldo)) {
-    const sentMessage = await ctx.reply(
-      "Por favor, ingrese un valor numérico válido para el sueldo bruto:",
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Cancelar", callback_data: "calculos_legales" }]
-          ]
-        }
-      }
-    );
-    await saveMessageIdAndDate(userId, sentMessage.message_id);
-    return;
-  }
-
-  // Guardar el sueldo y pasar al siguiente paso
-  ctx.session.calculoLiquidacionState.data.sueldoBruto = sueldo;
-  ctx.session.calculoLiquidacionState.step = 2;
-
-  // Preguntar por los días trabajados en el mes
-  const sentMessage = await ctx.reply(
-    "¿Cuántos días trabajó en el último mes?",
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Cancelar", callback_data: "calculos_legales" }]
-        ]
-      }
-    }
-  );
-  await saveMessageIdAndDate(userId, sentMessage.message_id);
-  ctx.session.waitingFor = 'diasTrabajadosLiquidacion';
-}
-
-async function handleMontoIntereses(ctx, monto) {
-  const userId = ctx.from.id;
-  
-  // Validar que el valor ingresado sea un número
-  const montoNum = parseFloat(monto.replace(/[^\d.]/g, ''));
-  if (isNaN(montoNum)) {
-    const sentMessage = await ctx.reply(
-      "Por favor, ingrese un valor numérico válido para el monto:",
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "Cancelar", callback_data: "calculos_legales" }]
-          ]
-        }
-      }
-    );
-    await saveMessageIdAndDate(userId, sentMessage.message_id);
-    return;
-  }
-
-  // Guardar el monto y pasar al siguiente paso
-  ctx.session.calculoInteresesState.data.monto = montoNum;
-  ctx.session.calculoInteresesState.step = 2;
-
-  // Preguntar por la fecha inicial
-  const sentMessage = await ctx.reply(
-    "Ingrese la fecha desde la cual desea calcular los intereses (formato DD/MM/AAAA):",
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Cancelar", callback_data: "calculos_legales" }]
-        ]
-      }
-    }
-  );
-  await saveMessageIdAndDate(userId, sentMessage.message_id);
-  ctx.session.waitingFor = 'fechaInicialIntereses';
-}
-
+/* ------------------------- HANDLER PARA TRACKING DE CAUSAS -------------------------------------*/
 exports.handleTrackingCausas = async (ctx) => {
   const userId = ctx.from.id;
   const trackingCausas = await getTrackingCausas(userId); // Implementar la función para obtener los datos
