@@ -1,15 +1,8 @@
 const bot = require("../../bot");
-const Subscription = require("../../models/subscriptionModel");
 const Indemnizacion = require("../../models/indeminzacionModel");
-const Tracking = require("../../models/trackingModel");
 const moment = require("moment");
-const { stripeSecretKey } = require("../../../config/env");
-const Stripe = require("stripe");
-const stripe = Stripe(stripeSecretKey);
-const { getTrackingTelegramas } = require("../trackingController");
 const { logger } = require("../../config/logger");
 const { saveMessageIdAndDate } = require("../subscriptionController");
-const { truncateText } = require("../../utils/format");
 
 /* ---------------------------- Menú CALCULOS LEGALES ------------------------------ */
 exports.handleCalculosLegales = async (ctx) => {
