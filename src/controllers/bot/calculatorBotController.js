@@ -49,6 +49,8 @@ exports.handleCalculoDespido = async (ctx) => {
       data: {},
     };
 
+    console.log("Iniciando cálculo de despido. Estado de sesión:", ctx.session);
+
     const sentMessage = await ctx.editMessageText(
       "Por favor, ingrese el sueldo bruto mensual del empleado:",
       {

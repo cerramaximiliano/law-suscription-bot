@@ -1,16 +1,23 @@
-const bot = require("../bot");
-const Subscription = require("../models/subscriptionModel");
-const Indemnizacion = require("../models/indeminzacionModel");
-const Tracking = require("../models/trackingModel");
 const moment = require("moment");
-const { stripeSecretKey } = require("../../config/env");
-const Stripe = require("stripe");
 
+const Stripe = require("stripe");
+const { stripeSecretKey } = require("../../../config/env");
 const stripe = Stripe(stripeSecretKey);
-const { getTrackingTelegramas } = require("../controllers/trackingController");
-const { logger } = require("../config/logger");
-const { truncateText } = require("../utils/format");
-const { saveMessageIdAndDate } = require("./subscriptionController");
+
+const {
+  getTrackingTelegramas,
+} = require("../../controllers/trackingController");
+const { logger } = require("../../config/logger");
+const { truncateText } = require("../../utils/format");
+const {
+  saveMessageIdAndDate,
+} = require("../../controllers/subscriptionController");
+const bot = require("../../bot");
+
+const Subscription = require("../../models/subscriptionModel");
+const Indemnizacion = require("../../models/indeminzacionModel");
+const Tracking = require("../../models/trackingModel");
+
 const URL_BASE = process.env.BASE_URL;
 
 // En esta función solo se envían mensajes en el GRUPO - No guardo el message id

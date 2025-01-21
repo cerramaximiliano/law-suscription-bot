@@ -1,6 +1,6 @@
 const { Telegraf, session } = require("telegraf");
 const { botToken } = require("../../config/env");
-
+const mongoose = require("mongoose");
 const trackingMiddleware = require("./middlewares");
 const Tracking = require("../models/trackingModel");
 const { logger } = require("../config/logger");
@@ -9,6 +9,50 @@ const {
   saveMessageIdAndDate,
 } = require("../controllers/subscriptionController");
 const suscriptionsTopic = process.env.TOPIC_SUSCRIPTIONS;
+
+const sessionSchema = new mongoose.Schema({
+  key: { type: String, required: true, unique: true },
+  data: { type: mongoose.Schema.Types.Mixed, default: {} },
+  updatedAt: { type: Date, default: Date.now },
+});
+sessionSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 24 * 60 * 60 }); // TTL index
+const SessionModel = mongoose.model("Session", sessionSchema);
+
+// Store personalizado simple
+class MongoStore {
+  async get(key) {
+    let session;
+    try {
+      session = await SessionModel.findOne({ key });
+      console.log("GET session:", key, session?.data);
+      return session?.data || {};
+    } catch (err) {
+      console.error("Error getting session:", err);
+      return {};
+    }
+  }
+
+  async set(key, data) {
+    try {
+      console.log("SET session:", key, data);
+      await SessionModel.findOneAndUpdate(
+        { key },
+        { data, updatedAt: new Date() },
+        { upsert: true }
+      );
+    } catch (err) {
+      console.error("Error setting session:", err);
+    }
+  }
+
+  async delete(key) {
+    try {
+      await SessionModel.deleteOne({ key });
+    } catch (err) {
+      console.error("Error deleting session:", err);
+    }
+  }
+}
 
 const bot = new Telegraf(botToken, {
   telegram: {
@@ -54,7 +98,20 @@ async function editMessageWithButtons(ctx, text, buttons) {
     }
   }
 }
-bot.use(session());
+bot.use(
+  session({
+    store: new MongoStore(),
+    getSessionKey: (ctx) => {
+      const userId = ctx.from?.id;
+      const chatId = ctx.chat?.id;
+      if (userId && chatId) {
+        return `${userId}:${chatId}`;
+      }
+      return null;
+    },
+  })
+);
+
 bot.use((ctx, next) => {
   if (!ctx.session) {
     ctx.session = {}; // Inicializa la sesión si no está definida
@@ -78,7 +135,9 @@ bot.start(async (ctx) => {
   if (ctx.chat.type === "private") {
     // Mensaje cuando el bot es iniciado en una conversación privada
     if (subscription) {
-      require("../controllers/subscriptionBotController").handleBotAccess(ctx);
+      require("../controllers/bot/subscriptionBotController").handleBotAccess(
+        ctx
+      );
     } else {
       ctx.reply(
         `¡Hola! Este bot está diseñado para suscripciones dentro de un grupo.`,
@@ -121,7 +180,7 @@ bot.start(async (ctx) => {
 bot.on("text", async (ctx) => {
   const userId = ctx.from.id;
   const trackingType = ctx.session.trackingType;
-  console.log("trackingType", trackingType);
+  console.log("trackingType", ctx.session);
   if (!ctx.session) {
     ctx.session = {}; // Inicializa la sesión si no está definida
   }
@@ -319,7 +378,7 @@ bot.on("text", async (ctx) => {
       ctx.session.waitingFor.includes("Liquidacion") ||
       ctx.session.waitingFor.includes("Intereses"))
   ) {
-    await require("../controllers/bot/subscriptionBotController").handleCalculosText(
+    await require("../controllers/bot/calculatorBotController").handleCalculosText(
       ctx
     );
     return;
@@ -328,46 +387,49 @@ bot.on("text", async (ctx) => {
 
 // Acción para el botón de suscripción
 bot.action("suscribirme", (ctx) => {
-  require("../controllers/subscriptionBotController").handleBotSubscription(
+  require("../controllers/bot/subscriptionBotController").handleBotSubscription(
     ctx
   );
 });
 
 bot.action("start_access", (ctx) => {
-  require("../controllers/subscriptionBotController").handleBotAccess(ctx);
+  require("../controllers/bot/subscriptionBotController").handleBotAccess(ctx);
 });
 
 bot.action(
   "subscription_info",
-  require("../controllers/subscriptionBotController").handleSubscriptionInfo
+  require("../controllers/bot/subscriptionBotController").handleSubscriptionInfo
 );
 
 // Acción para cancelar suscripción
 bot.action(
   "cancel_subscription",
-  require("../controllers/subscriptionBotController").handleCancelSubscription
+  require("../controllers/bot/subscriptionBotController")
+    .handleCancelSubscription
 );
 // Acción para cambiar método de pago
 bot.action(
   "change_payment_method",
-  require("../controllers/subscriptionBotController").handleChangePaymentMethod
+  require("../controllers/bot/subscriptionBotController")
+    .handleChangePaymentMethod
 );
 
 // Aplicar el middleware solo en las acciones de tracking
 bot.action(
   "tracking_options",
   trackingMiddleware,
-  require("../controllers/subscriptionBotController").handleTrackingOptions
+  require("../controllers/bot/subscriptionBotController").handleTrackingOptions
 );
 bot.action(
   "tracking_causas",
   trackingMiddleware,
-  require("../controllers/subscriptionBotController").handleTrackingCausas
+  require("../controllers/bot/subscriptionBotController").handleTrackingCausas
 );
 bot.action(
   "tracking_telegramas",
   trackingMiddleware,
-  require("../controllers/subscriptionBotController").handleTrackingTelegramas
+  require("../controllers/bot/subscriptionBotController")
+    .handleTrackingTelegramas
 );
 
 /* CALCULOS */
@@ -390,83 +452,83 @@ bot.action(
     .handleCalcularIndemnizacion
 );
 
-
 /*  */
 
 bot.action(
   "calculo_liquidacion",
   trackingMiddleware,
-  require("../controllers/subscriptionBotController").handleCalculoLiquidacion
+  require("../controllers/bot/subscriptionBotController")
+    .handleCalculoLiquidacion
 );
 
 bot.action(
   "calculo_intereses",
   trackingMiddleware,
-  require("../controllers/subscriptionBotController").handleCalculoIntereses
+  require("../controllers/bot/subscriptionBotController").handleCalculoIntereses
 );
 bot.action("delete_tracking_menu", async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleDeleteTrackingMenu(
+  await require("../controllers/bot/subscriptionBotController").handleDeleteTrackingMenu(
     ctx
   );
 });
 
 bot.action(/^delete_tracking_\w+$/, async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleDeleteTracking(
+  await require("../controllers/bot/subscriptionBotController").handleDeleteTracking(
     ctx
   );
 });
 
 bot.action("view_all_telegramas", async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleViewAllTelegramas(
+  await require("../controllers/bot/subscriptionBotController").handleViewAllTelegramas(
     ctx
   );
 });
 
 bot.action(/^view_tracking_movements_\w+$/, async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleViewTrackingMovements(
+  await require("../controllers/bot/subscriptionBotController").handleViewTrackingMovements(
     ctx
   );
 });
 
 bot.action(
   "back_to_main",
-  require("../controllers/subscriptionBotController").handleBackToMain
+  require("../controllers/bot/subscriptionBotController").handleBackToMain
 );
 
 bot.action("add_new_telegrama", async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleAddNewTelegrama(
+  await require("../controllers/bot/subscriptionBotController").handleAddNewTelegrama(
     ctx
   ); // Llama a la función que muestra el nuevo menú
 });
 
 bot.action("tracking_telegramas", async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleTrackingTelegramas(
+  await require("../controllers/bot/subscriptionBotController").handleTrackingTelegramas(
     ctx
   ); // Vuelve al menú anterior
 });
 
 bot.action("add_carta_documento", async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleAddCartaDocumento(
+  await require("../controllers/bot/subscriptionBotController").handleAddCartaDocumento(
     ctx
   ); // Solicita el número de CD
 });
 
 bot.action("add_telegrama", async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleAddTelegrama(
+  await require("../controllers/bot/subscriptionBotController").handleAddTelegrama(
     ctx
   ); // Solicita el número de CD
 });
 
 // Acción para mostrar el menú de archivado
 bot.action("archive_tracking_menu", async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleArchiveTrackingMenu(
+  await require("../controllers/bot/subscriptionBotController").handleArchiveTrackingMenu(
     ctx
   );
 });
 
 // Acción para archivar un seguimiento específico
 bot.action(/^archive_tracking_\w+$/, async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleArchiveTracking(
+  await require("../controllers/bot/subscriptionBotController").handleArchiveTracking(
     ctx
   );
 });
@@ -508,7 +570,9 @@ bot.action(/^send_screenshot_\w+$/, async (ctx) => {
 });
 
 bot.action(/^add_alias_\w+$/, async (ctx) => {
-  await require("../controllers/subscriptionBotController").handleAddAlias(ctx);
+  await require("../controllers/bot/subscriptionBotController").handleAddAlias(
+    ctx
+  );
 });
 
 bot.catch((err, ctx) => {
